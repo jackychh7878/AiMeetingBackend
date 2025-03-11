@@ -1,3 +1,5 @@
 ﻿pandas
 requests
-Flask
+fastapi
+uvicorn
+python-dotenv
