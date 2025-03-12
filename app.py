@@ -33,8 +33,11 @@ def check_status(url: str):
 
             values = content_json.get("values", [])
             if values:
-                content_url = values[0].get("links", {}).get("contentUrl")
-                return content_url
+                response_url_list = []
+                for item in values:
+                    content_url = item.get("links", {}).get("contentUrl")
+                    response_url_list.append(content_url)
+                return response_url_list
     else:
         return "In Progress"
 
@@ -69,10 +72,14 @@ def transcription():
     data = request.get_json()
     url = data.get('url')
     try:
-        content_response = check_status(url)
-        if content_response != "In Progress":
-            result = fetch_completed_transcription(content_response)
-            return {"transcriptions": result}
+        content_url_list = check_status(url)
+        if content_url_list != "In Progress":
+            output_list = []
+            for content_url in content_url_list[:-1]:
+                result = fetch_completed_transcription(content_url)
+                result_dict = {"transcriptions": result}
+                output_list.append(result_dict)
+            return output_list
         else:
             return {"transcriptions": "Transcription in progress"}
     except Exception as e:
