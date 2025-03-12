@@ -1,8 +1,9 @@
-﻿from flask import Flask, request, jsonify
+﻿import os
+from dotenv import load_dotenv
+from flask import Flask, request, jsonify
 from pydantic import BaseModel
 import requests
-from dotenv import load_dotenv
-import os
+
 
 # Load environment variables
 load_dotenv()
@@ -46,9 +47,21 @@ def fetch_completed_transcription(url: str):
     for phrase in json_data.get("recognizedPhrases", []):
         speaker = phrase.get("speaker")
         display_text = phrase.get("nBest", [{}])[0].get("display", "")
+        offset = phrase.get("offsetInTicks", 0) / 10000000  # Convert ticks to seconds
+        duration = phrase.get("durationInTicks", 0) / 10000000  # Convert ticks to seconds
+
+        start_time = format_time(offset)
+        end_time = format_time(offset + duration)
+
         if speaker is not None and display_text:
-            speaker_text_pairs.append(f"Speaker-{speaker}: {display_text}")
+            speaker_text_pairs.append(f"Speaker-{speaker} ({start_time} - {end_time}): {display_text}")
     return speaker_text_pairs
+
+
+def format_time(seconds):
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 @app.route('/transcription', methods=['POST'])
