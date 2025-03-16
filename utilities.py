@@ -1,8 +1,10 @@
+import requests
 import os
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from pydantic import BaseModel
-import requests
+import base64
+from pydub import AudioSegment
 
 
 # Load environment variables
@@ -61,3 +63,42 @@ def format_time(seconds):
     minutes, seconds = divmod(int(seconds), 60)
     hours, minutes = divmod(minutes, 60)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def mp4_to_base64(mp4_url):
+    """
+    Downloads an MP4 file from a URL, extracts the audio, converts it to WAV, and returns a base64-encoded string.
+    """
+    try:
+        # Define temporary file paths
+        mp4_path = "temp_audio.mp4"
+        wav_path = "temp_audio.wav"
+
+        # Step 1: Download MP4
+        response = requests.get(mp4_url, stream=True)
+        if response.status_code == 200:
+            with open(mp4_path, "wb") as file:
+                for chunk in response.iter_content(chunk_size=1024):
+                    file.write(chunk)
+            print("Downloaded MP4")
+        else:
+            raise Exception(f"Failed to download MP4. Status code: {response.status_code}")
+
+        # Step 2: Convert MP4 to WAV
+        audio = AudioSegment.from_file(mp4_path, format="mp4")
+        audio.export(wav_path, format="wav")
+        print("Converted to WAV")
+
+        # Step 3: Encode WAV to base64
+        with open(wav_path, "rb") as audio_file:
+            encoded_audio = base64.b64encode(audio_file.read()).decode("utf-8")
+
+        # Cleanup temporary files
+        os.remove(mp4_path)
+        os.remove(wav_path)
+
+        return encoded_audio  # Return the base64-encoded string
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
