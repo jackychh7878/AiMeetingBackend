@@ -116,7 +116,8 @@ def call_speech_to_text_api():
         return jsonify({"error": "Failed to process audio"}), 500
 
     # Generate the file URL
-    file_url = f"http://localhost:5000/uploads/audio.wav"  # Replace with actual domain if hosted
+    AZURE_URL = "https://transcribe-video-api-bwbkcsh6c3daarg4.eastasia-01.azurewebsites.net/"
+    file_url = f"{AZURE_URL}/uploads/audio.wav" # Replace with actual domain if hosted
 
     # Prepare API request
     FANOLAB_API_KEY = os.getenv("FANOLAB_API_KEY")
