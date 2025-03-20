@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify
 from pydantic import BaseModel
 import base64
 from pydub import AudioSegment
+from collections import defaultdict
 
 
 # Load environment variables
@@ -39,12 +40,34 @@ def check_status(url: str):
     else:
         return "In Progress"
 
+# def fetch_completed_transcription(url: str):
+#     response = requests.get(url)
+#     response.raise_for_status()  # Raises an error for bad responses
+#     json_data = response.json()
+#
+#     speaker_text_pairs = []
+#     for phrase in json_data.get("recognizedPhrases", []):
+#         speaker = phrase.get("speaker")
+#         display_text = phrase.get("nBest", [{}])[0].get("display", "")
+#         offset = phrase.get("offsetInTicks", 0) / 10000000  # Convert ticks to seconds
+#         duration = phrase.get("durationInTicks", 0) / 10000000  # Convert ticks to seconds
+#
+#         start_time = format_time(offset)
+#         end_time = format_time(offset + duration)
+#
+#         if speaker is not None and display_text:
+#             speaker_text_pairs.append(f"Speaker-{speaker} ({start_time} - {end_time}): {display_text}")
+#     return speaker_text_pairs
+
 def fetch_completed_transcription(url: str):
     response = requests.get(url)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
 
     speaker_text_pairs = []
+    speaker_stats = defaultdict(lambda: {"total_duration": 0, "total_words": 0})
+    total_duration = 0
+
     for phrase in json_data.get("recognizedPhrases", []):
         speaker = phrase.get("speaker")
         display_text = phrase.get("nBest", [{}])[0].get("display", "")
@@ -56,7 +79,18 @@ def fetch_completed_transcription(url: str):
 
         if speaker is not None and display_text:
             speaker_text_pairs.append(f"Speaker-{speaker} ({start_time} - {end_time}): {display_text}")
-    return speaker_text_pairs
+
+            # Update speaker statistics
+            speaker_stats[speaker]["total_duration"] += duration
+            speaker_stats[speaker]["total_words"] += len(display_text.split())
+            total_duration += duration
+
+    # Calculate percentages and words per minute
+    for speaker, stats in speaker_stats.items():
+        stats["percentage"] = (stats["total_duration"] / total_duration) * 100
+        stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60
+
+    return speaker_text_pairs, speaker_stats, total_duration
 
 
 def format_time(seconds):

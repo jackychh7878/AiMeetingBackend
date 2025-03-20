@@ -19,8 +19,10 @@ def transcription():
         if content_url_list != "In Progress":
             output_list = []
             for content_url in content_url_list[:-1]:
-                result = fetch_completed_transcription(content_url)
-                result_dict = {"transcriptions": result}
+                speaker_text_pairs, speaker_stats, total_duration = fetch_completed_transcription(content_url)
+                result_dict = { "speaker_stats": speaker_stats,
+                                "total_duration": total_duration,
+                                "transcriptions": speaker_text_pairs}
                 output_list.append(result_dict)
             return output_list
         else:
