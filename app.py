@@ -4,10 +4,19 @@ from flask import Flask, request, jsonify, send_from_directory
 import requests
 from utilities import check_status, fetch_completed_transcription, mp4_to_base64
 from pydub import AudioSegment
+from openai import AsyncAzureOpenAI
+from typing import List
 
 # Load environment variables
 load_dotenv()
 app = Flask(__name__)
+
+# Initialize OpenAI and Supabase clients
+openai_client = AsyncAzureOpenAI(
+    azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
+    api_version=os.getenv('AZURE_API_VERSION'),
+    api_key=os.getenv('AZURE_OPENAI_API_KEY'),
+)
 
 
 @app.route('/transcription', methods=['POST'])
@@ -29,6 +38,24 @@ def transcription():
             return {"transcriptions": "Transcription in progress"}
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.route('/get_embedding', methods=['POST'])
+async def get_embedding() -> List[float]:
+    """Get embedding vector from OpenAI."""
+    data = request.get_json()
+    text = data.get('text')
+
+    try:
+        response = await openai_client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        print(f"Error getting embedding: {e}")
+        return [0] * 1536  # Return zero vector on error
+
 
 #Fano Lab API
 
