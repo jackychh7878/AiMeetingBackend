@@ -3,6 +3,8 @@ requests
 uvicorn
 python-dotenv
 pydub
+openai
+flask[async]
 webrtcvad-wheels
 resemblyzer
 sqlalchemy

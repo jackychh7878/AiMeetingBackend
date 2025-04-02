@@ -4,10 +4,19 @@ from flask import Flask, request, jsonify, send_from_directory
 import requests
 from utilities import check_status, fetch_completed_transcription, mp4_to_base64
 from pydub import AudioSegment
+from openai import AsyncAzureOpenAI
+from typing import List
 
 # Load environment variables
 load_dotenv()
 app = Flask(__name__)
+
+# Initialize OpenAI and Supabase clients
+openai_client = AsyncAzureOpenAI(
+    azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
+    api_version=os.getenv('AZURE_API_VERSION'),
+    api_key=os.getenv('AZURE_OPENAI_API_KEY'),
+)
 
 
 @app.route('/transcription', methods=['POST'])
@@ -29,6 +38,7 @@ def transcription():
             return {"transcriptions": "Transcription in progress"}
     except Exception as e:
         return {"error": str(e)}
+
 
 #Fano Lab API
 
