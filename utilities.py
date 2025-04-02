@@ -105,8 +105,8 @@ def mp4_to_base64(mp4_url):
     """
     try:
         # Define temporary file paths
-        mp4_path = "temp_audio.mp4"
-        wav_path = "temp_audio.wav"
+        mp4_path = "./uploads/temp_audio.mp4"
+        wav_path = "./uploads/temp_audio.wav"
 
         # Step 1: Download MP4
         response = requests.get(mp4_url, stream=True)
@@ -166,4 +166,7 @@ def extract_audio_segment(input_file: str, output_file: str, start_time: float, 
     extracted_segment.export(output_file, format="wav")
 
 if __name__ == '__main__':
-    mp4_to_base64()
+    mp4_to_base64(mp4_url="https://catomindst.blob.core.windows.net/meeting/Call%20with%20Sunny%20Chan/Call%20with%20Sunny%20Chan-20250306_174429-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-04-02T09%3A25%3A27Z&se=2026-04-03T09%3A25%3A00Z&sr=b&sp=r&sig=2a%2Fp0JrOTHPZFWwIpcEz4lRMLlUbrp%2FoNomidsdSJSk%3D")
+    wav_path = "./uploads/temp_audio.wav"
+    output_path = "./uploads/clip.wav"
+    extract_audio_segment(wav_path, output_path, start_time=0.0, end_time=20.0)

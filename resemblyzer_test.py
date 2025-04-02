@@ -105,6 +105,7 @@ def search_voiceprint():
     # file.save(temp_path)
     data = request.json
     temp_path = data.get("path")
+    limit = data.get('limit', 3)
     # temp_path = "sample_audio/test_jacky.wav"
 
     try:
@@ -117,22 +118,26 @@ def search_voiceprint():
             session.query(VoiceprintLibrary, similarity_score)
             .filter(VoiceprintLibrary.embedding.is_not(None))
             .order_by(VoiceprintLibrary.embedding.cosine_distance(query_embedding),similarity_score.desc())
-            .limit(1)
+            .limit(limit)
             .all()
         )
 
         if not results:
             return jsonify({"message": "No matching voiceprint found."}), 404
 
-        person, similarity = results[0]
-        response = {
-            "sys_id": person.sys_id,
-            "name": person.name,
-            "email": person.email,
-            "department": person.department,
-            "position": person.position,
-            "similarity": float(similarity)
-        }
+        # Format the results
+        response = []
+        for person, similarity in results:
+            response_obj = {
+                "sys_id": person.sys_id,
+                "name": person.name,
+                "email": person.email,
+                "department": person.department,
+                "position": person.position,
+                "similarity": float(similarity)
+            }
+            response.append(response_obj)
+
         return jsonify(response)
 
     except Exception as e:
