@@ -1,6 +1,12 @@
 ﻿pandas
 requests
-fastapi
 uvicorn
 python-dotenv
 pydub
+webrtcvad-wheels
+resemblyzer
+sqlalchemy
+psycopg2-binary
+pgvector
+flask
+flask[async]

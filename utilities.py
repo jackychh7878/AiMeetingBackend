@@ -124,15 +124,46 @@ def mp4_to_base64(mp4_url):
         print("Converted to WAV")
 
         # Step 3: Encode WAV to base64
-        with open(wav_path, "rb") as audio_file:
-            encoded_audio = base64.b64encode(audio_file.read()).decode("utf-8")
+        # with open(wav_path, "rb") as audio_file:
+        #     encoded_audio = base64.b64encode(audio_file.read()).decode("utf-8")
+        #
+        # # Cleanup temporary files
+        # os.remove(mp4_path)
+        # os.remove(wav_path)
 
-        # Cleanup temporary files
-        os.remove(mp4_path)
-        os.remove(wav_path)
-
-        return encoded_audio  # Return the base64-encoded string
+        # return encoded_audio  # Return the base64-encoded string
 
     except Exception as e:
         print(f"Error: {e}")
         return None
+
+
+
+def extract_audio_segment(input_file: str, output_file: str, start_time: float, end_time: float) -> None:
+    """
+    Extracts a segment from an audio file and saves it as a new file.
+
+    Parameters:
+    - input_file (str): Path to the input audio file.
+    - output_file (str): Path where the extracted segment will be saved.
+    - start_time (float): Start time in seconds for the segment to extract.
+    - end_time (float): End time in seconds for the segment to extract.
+
+    Returns:
+    - None
+    """
+    # Load the audio file
+    audio = AudioSegment.from_file(input_file)
+
+    # Convert start and end times to milliseconds
+    start_ms = start_time * 1000
+    end_ms = end_time * 1000
+
+    # Extract the desired segment
+    extracted_segment = audio[start_ms:end_ms]
+
+    # Export the extracted segment to a new file
+    extracted_segment.export(output_file, format="wav")
+
+if __name__ == '__main__':
+    mp4_to_base64()
