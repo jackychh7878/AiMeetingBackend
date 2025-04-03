@@ -50,7 +50,7 @@ session = Session()
 
 
 def get_embedding(file_wav: Union[str, Path, np.ndarray]) -> List[float]:
-    """Get embedding vector from OpenAI."""
+    """Get voiceprint embedding vector."""
     try:
         wav = preprocess_wav(file_wav)
 
@@ -61,7 +61,6 @@ def get_embedding(file_wav: Union[str, Path, np.ndarray]) -> List[float]:
     except Exception as e:
         print(f"Error getting embedding: {e}")
         return [0] * 256  # Return zero vector on error
-
 
 
 
@@ -105,7 +104,6 @@ def insert_voiceprint(request):
         return jsonify({"error": str(e)}), 500
 
 
-# def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
 def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
     """Search for the closest matching voiceprint in the database by sending a path with .wav file."""
 
