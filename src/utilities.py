@@ -16,29 +16,29 @@ headers = {
     "Content-Type": "application/json"
 }
 
-def check_status(url: str):
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()  # Raises an error for bad responses
-    json_data = response.json()
-
-    transcribing_status = json_data.get("status", "")
-
-    if transcribing_status == "Succeeded":
-        file_url = json_data.get("links", {}).get("files")  # Avoids unnecessary empty string
-
-        if file_url:
-            content_response = requests.get(file_url, headers=headers)
-            content_json = content_response.json()
-
-            values = content_json.get("values", [])
-            if values:
-                response_url_list = []
-                for item in values:
-                    content_url = item.get("links", {}).get("contentUrl")
-                    response_url_list.append(content_url)
-                return response_url_list
-    else:
-        return "In Progress"
+# def check_status(url: str):
+#     response = requests.get(url, headers=headers)
+#     response.raise_for_status()  # Raises an error for bad responses
+#     json_data = response.json()
+#
+#     transcribing_status = json_data.get("status", "")
+#
+#     if transcribing_status == "Succeeded":
+#         file_url = json_data.get("links", {}).get("files")  # Avoids unnecessary empty string
+#
+#         if file_url:
+#             content_response = requests.get(file_url, headers=headers)
+#             content_json = content_response.json()
+#
+#             values = content_json.get("values", [])
+#             if values:
+#                 response_url_list = []
+#                 for item in values:
+#                     content_url = item.get("links", {}).get("contentUrl")
+#                     response_url_list.append(content_url)
+#                 return response_url_list
+#     else:
+#         return "In Progress"
 
 # def fetch_completed_transcription(url: str):
 #     response = requests.get(url)
@@ -59,38 +59,38 @@ def check_status(url: str):
 #             speaker_text_pairs.append(f"Speaker-{speaker} ({start_time} - {end_time}): {display_text}")
 #     return speaker_text_pairs
 
-def fetch_completed_transcription(url: str):
-    response = requests.get(url)
-    response.raise_for_status()  # Raises an error for bad responses
-    json_data = response.json()
-
-    speaker_text_pairs = []
-    speaker_stats = defaultdict(lambda: {"total_duration": 0, "total_words": 0})
-    total_duration = 0
-
-    for phrase in json_data.get("recognizedPhrases", []):
-        speaker = phrase.get("speaker")
-        display_text = phrase.get("nBest", [{}])[0].get("display", "")
-        offset = phrase.get("offsetInTicks", 0) / 10000000  # Convert ticks to seconds
-        duration = phrase.get("durationInTicks", 0) / 10000000  # Convert ticks to seconds
-
-        start_time = format_time(offset)
-        end_time = format_time(offset + duration)
-
-        if speaker is not None and display_text:
-            speaker_text_pairs.append(f"Speaker-{speaker} ({start_time} - {end_time}): {display_text}")
-
-            # Update speaker statistics
-            speaker_stats[speaker]["total_duration"] += duration
-            speaker_stats[speaker]["total_words"] += len(display_text.split())
-            total_duration += duration
-
-    # Calculate percentages and words per minute
-    for speaker, stats in speaker_stats.items():
-        stats["percentage"] = (stats["total_duration"] / total_duration) * 100
-        stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60
-
-    return speaker_text_pairs, speaker_stats, total_duration
+# def fetch_completed_transcription(url: str):
+#     response = requests.get(url)
+#     response.raise_for_status()  # Raises an error for bad responses
+#     json_data = response.json()
+#
+#     speaker_text_pairs = []
+#     speaker_stats = defaultdict(lambda: {"total_duration": 0, "total_words": 0})
+#     total_duration = 0
+#
+#     for phrase in json_data.get("recognizedPhrases", []):
+#         speaker = phrase.get("speaker")
+#         display_text = phrase.get("nBest", [{}])[0].get("display", "")
+#         offset = phrase.get("offsetInTicks", 0) / 10000000  # Convert ticks to seconds
+#         duration = phrase.get("durationInTicks", 0) / 10000000  # Convert ticks to seconds
+#
+#         start_time = format_time(offset)
+#         end_time = format_time(offset + duration)
+#
+#         if speaker is not None and display_text:
+#             speaker_text_pairs.append(f"Speaker-{speaker} ({start_time} - {end_time}): {display_text}")
+#
+#             # Update speaker statistics
+#             speaker_stats[speaker]["total_duration"] += duration
+#             speaker_stats[speaker]["total_words"] += len(display_text.split())
+#             total_duration += duration
+#
+#     # Calculate percentages and words per minute
+#     for speaker, stats in speaker_stats.items():
+#         stats["percentage"] = (stats["total_duration"] / total_duration) * 100
+#         stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60
+#
+#     return speaker_text_pairs, speaker_stats, total_duration
 
 
 def format_time(seconds):
@@ -105,8 +105,8 @@ def mp4_to_base64(mp4_url):
     """
     try:
         # Define temporary file paths
-        mp4_path = "./uploads/temp_audio.mp4"
-        wav_path = "./uploads/temp_audio.wav"
+        mp4_path = "../uploads/temp_audio.mp4"
+        wav_path = "../uploads/temp_audio.wav"
 
         # Step 1: Download MP4
         response = requests.get(mp4_url, stream=True)
@@ -167,6 +167,6 @@ def extract_audio_segment(input_file: str, output_file: str, start_time: float, 
 
 if __name__ == '__main__':
     mp4_to_base64(mp4_url="")
-    wav_path = "./uploads/temp_audio.wav"
-    output_path = "./uploads/clip.wav"
+    wav_path = "../uploads/temp_audio.wav"
+    output_path = "../uploads/clip.wav"
     extract_audio_segment(wav_path, output_path, start_time=0.0, end_time=20.0)

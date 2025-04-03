@@ -2,43 +2,26 @@
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 import requests
-from utilities import check_status, fetch_completed_transcription, mp4_to_base64
+# from src.utilities import check_status, fetch_completed_transcription
 from pydub import AudioSegment
 from openai import AsyncAzureOpenAI
-from typing import List
-from voiceprint_library_service import search_voiceprint
+from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
+from src.azure_service import azure_transcription
 
 # Load environment variables
 load_dotenv()
 app = Flask(__name__)
 
-# Initialize OpenAI and Supabase clients
-openai_client = AsyncAzureOpenAI(
-    azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
-    api_version=os.getenv('AZURE_API_VERSION'),
-    api_key=os.getenv('AZURE_OPENAI_API_KEY'),
-)
-
 
 @app.route('/transcription', methods=['POST'])
-def transcription():
-    data = request.get_json()
-    url = data.get('url')
+def azure_transcription_api():
     try:
-        content_url_list = check_status(url)
-        if content_url_list != "In Progress":
-            output_list = []
-            for content_url in content_url_list[:-1]:
-                speaker_text_pairs, speaker_stats, total_duration = fetch_completed_transcription(content_url)
-                result_dict = { "speaker_stats": speaker_stats,
-                                "total_duration": total_duration,
-                                "transcriptions": speaker_text_pairs}
-                output_list.append(result_dict)
-            return output_list
-        else:
-            return {"transcriptions": "Transcription in progress"}
+        data = request.json
+        result = azure_transcription(data)
+
+        return result, 200
     except Exception as e:
-        return {"error": str(e)}
+        return jsonify({"error": str(e)}), 500
 
 
 #Fano Lab API
@@ -156,14 +139,22 @@ def call_speech_to_text_api():
 
     return response.json()
 
-@app.route('/search_voiceprint', methods=['POST'])
-def search_voiceprint_api():
+@app.route('/insert_voiceprint', methods=['POST'])
+def insert_voiceprint_api():
     try:
-        data = request.json
-        result = search_voiceprint(data)
-        return result, 200
+        result = insert_voiceprint(request)
+        return result, 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# @app.route('/search_voiceprint', methods=['POST'])
+# def search_voiceprint_api():
+#     try:
+#         data = request.json
+#         result = search_voiceprint(data)
+#         return result, 200
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

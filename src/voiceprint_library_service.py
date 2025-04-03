@@ -12,8 +12,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import update
 from flask import Flask, request, jsonify
 import requests
+from werkzeug.utils import secure_filename
+import librosa
 
 load_dotenv()
+
+# Set a directory for temporary file storage
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 
@@ -41,10 +47,10 @@ session = Session()
 
 
 
-def get_embedding(fpath: Path) -> List[float]:
+def get_embedding(file_wav) -> List[float]:
     """Get embedding vector from OpenAI."""
     try:
-        wav = preprocess_wav(fpath)
+        wav = preprocess_wav(file_wav)
 
         encoder = VoiceEncoder()
         embed = encoder.embed_utterance(wav)
@@ -55,7 +61,7 @@ def get_embedding(fpath: Path) -> List[float]:
         return [0] * 256  # Return zero vector on error
 
 
-fpath = Path("sample_audio/enrollment_voiceprint_jacky.wav")
+# fpath = Path("../sample_audio/enrollment_voiceprint_jacky.wav")
 # wav = preprocess_wav(fpath)
 #
 # encoder = VoiceEncoder()
@@ -64,21 +70,41 @@ fpath = Path("sample_audio/enrollment_voiceprint_jacky.wav")
 # print(embed)
 
 
-@app.route('/insert_voiceprint', methods=['POST'])
-def insert_voiceprint():
-    data = request.json
-    name = data.get("name")
-    email = data.get("email")
-    department = data.get("department")
-    position = data.get("position")
-    # audio_path = data.get("audio_path")  # Path to audio file
-    audio_path = "sample_audio/enrollment_voiceprint_kelvin.wav"
+# @app.route('/insert_voiceprint', methods=['POST'])
+def insert_voiceprint(request):
+    # data = request.json
+    name = request.form.get("name")
+    email = request.form.get("email")
+    department = request.form.get("department")
+    position = request.form.get("position")
+    audio_file = request.files.get("audio_file")  # Get uploaded file
 
-    if not all([name, audio_path]):
-        return jsonify({"error": "Missing required fields: name and audio_path are required."}), 400
+    # audio_path = data.get("audio_path")  # Path to audio file
+    # audio_path = "../sample_audio/enrollment_voiceprint_kelvin.wav"
+    #
+    # if not all([name, audio_path]):
+    #     return jsonify({"error": "Missing required fields: name and audio_path are required."}), 400
+
+
+    if not all([name, audio_file]):
+        return jsonify({"error": "Missing required fields: name and audio_file are required."}), 400
+
+    # Ensure the file is a .wav file
+    if not audio_file.filename.lower().endswith(".wav"):
+        return jsonify({"error": "Invalid file format. Only .wav files are allowed."}), 400
+
+    # Save the uploaded file temporarily
+    filename = secure_filename(audio_file.filename)
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    audio_file.save(file_path)
+
+    # Convert audio file to a NumPy array
+    wav_np, sr = librosa.load(file_path, sr=None)  # Load audio
+    os.remove(file_path)  # Delete the temporary file after loading
 
     try:
-        embedding = get_embedding(Path(audio_path))
+        # embedding = get_embedding(Path(audio_path))
+        embedding = get_embedding(wav_np)
         voiceprint = VoiceprintLibrary(
             name=name,
             email=email,
@@ -88,26 +114,27 @@ def insert_voiceprint():
         )
         session.add(voiceprint)
         session.commit()
-        return jsonify({"message": "Voiceprint inserted successfully!"}), 201
+        return jsonify({"message": "Voiceprint inserted successfully!"})
     except Exception as e:
         session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
-# @app.route('/search_voiceprint', methods=['POST'])
-def search_voiceprint(data):
+@app.route('/search_voiceprint', methods=['POST'])
+def search_voiceprint(data_path, data):
     """Search for the closest matching voiceprint in the database by sending a .wav file."""
     # if 'file' not in request.files:
     #     return jsonify({"error": "No file uploaded"}), 400
 
-    # file = request.files['file']
-    # temp_path = Path("./temp_audio.wav")
-    # file.save(temp_path)
-    # data = request.json
-    temp_path = data.get("path")
-    limit = data.get('limit', 3)
-    confidence_level = data.get('confidence_level', 0.8)
-    # temp_path = "sample_audio/test_jacky.wav"
+
+    # temp_path = data.get("path")
+    # limit = data.get('limit', 3)
+    # confidence_level = data.get('confidence_level', 0.8)
+
+    temp_path = data_path
+    limit = 3
+    confidence_level = 0.8
+
 
     # Validate confidence_level is between 0 and 1
     if confidence_level < 0 or confidence_level > 1:
@@ -115,7 +142,6 @@ def search_voiceprint(data):
 
     try:
         query_embedding = get_embedding(temp_path)
-        # temp_path.unlink()  # Remove temp file
 
         similarity_score = (1 - VoiceprintLibrary.embedding.cosine_distance(query_embedding)).label("similarity")
 
@@ -129,8 +155,6 @@ def search_voiceprint(data):
             .all()
         )
 
-        # if not results:
-        #     return jsonify({"message": "No matching voiceprint found."}), 404
 
         # Format the results
         response = []
@@ -148,7 +172,7 @@ def search_voiceprint(data):
         return jsonify(response)
 
     except Exception as e:
-        return jsonify({"error": f"Search error: {str(e)}"}), 500
+        return jsonify({"error": f"Search error: {str(e)}"})
 
 if __name__ == '__main__':
     app.run(debug=True)
