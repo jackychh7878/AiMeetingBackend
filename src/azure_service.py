@@ -13,7 +13,8 @@ headers = {
 }
 
 
-def azure_transcription(data):
+def azure_transcription(request):
+    data = request.get_json()
     url = data.get('url')
     try:
         content_url_list = check_status(url)

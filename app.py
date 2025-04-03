@@ -15,13 +15,10 @@ app = Flask(__name__)
 @app.route('/transcription', methods=['POST'])
 def azure_transcription_api():
     try:
-        data = request.json
-        result = azure_transcription(data)
-
+        result = azure_transcription(request)
         return result, 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 @app.route('/insert_voiceprint', methods=['POST'])
@@ -32,14 +29,14 @@ def insert_voiceprint_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# @app.route('/search_voiceprint', methods=['POST'])
-# def search_voiceprint_api():
-#     try:
-#         data = request.json
-#         result = search_voiceprint(data)
-#         return result, 200
-#     except Exception as e:
-#         return jsonify({'error': str(e)}), 500
+@app.route('/search_voiceprint', methods=['POST'])
+def search_voiceprint_api():
+    try:
+        data = request.json
+        result = search_voiceprint(data.get('path'))
+        return result, 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

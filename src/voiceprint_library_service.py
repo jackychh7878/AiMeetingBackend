@@ -63,13 +63,6 @@ def get_embedding(file_wav: Union[str, Path, np.ndarray]) -> List[float]:
         return [0] * 256  # Return zero vector on error
 
 
-# fpath = Path("../sample_audio/enrollment_voiceprint_jacky.wav")
-# wav = preprocess_wav(fpath)
-#
-# encoder = VoiceEncoder()
-# embed = encoder.embed_utterance(wav)
-# np.set_printoptions(precision=3, suppress=True)
-# print(embed)
 
 
 def insert_voiceprint(request):
@@ -112,11 +105,11 @@ def insert_voiceprint(request):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/search_voiceprint', methods=['POST'])
-def search_voiceprint(data_path):
+# def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
+def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
     """Search for the closest matching voiceprint in the database by sending a path with .wav file."""
 
-    temp_path = data_path
+    temp_path = file_wav
     limit = 3
     confidence_level = 0.8
 
