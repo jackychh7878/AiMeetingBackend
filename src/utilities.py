@@ -129,6 +129,9 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
 
 if __name__ == '__main__':
     # mp4_to_base64(mp4_url="")
-    mp4_url = "https://catomindst.blob.core.windows.net/meeting/Call%20with%20Sunny%20Chan/Call%20with%20Sunny%20Chan-20250306_174429-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-04-02T09%3A25%3A27Z&se=2026-04-03T09%3A25%3A00Z&sr=b&sp=r&sig=2a%2Fp0JrOTHPZFWwIpcEz4lRMLlUbrp%2FoNomidsdSJSk%3D"
-    mp4_to_wav_file(mp4_url=mp4_url)
-    extract_audio_segment(output_name="temp_clip", start_time=0.0, end_time=20.0)
+    # mp4_url = "https://catomindst.blob.core.windows.net/meeting/Walk%20through%20AKA%20Phase%201%20&%202/Walk%20through%20AKA%20Phase%201%20%2526%202-20250221_110217-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A41%3A13Z&se=2026-03-28T10%3A41%3A00Z&sr=b&sp=r&sig=5xbnTOyhWLWGkNXY1bt%2BnfBHJpGciCWTdYslukS1qo4%3D"
+    # mp4_to_wav_file(mp4_url=mp4_url)
+    extract_audio_segment(output_name="temp_clip_1", start_time=2847.0, end_time=2854.0)
+    extract_audio_segment(output_name="temp_clip_2", start_time=5187.0, end_time=5191.0)
+    extract_audio_segment(output_name="temp_clip_3", start_time=5624.0, end_time=5633.0)
+
