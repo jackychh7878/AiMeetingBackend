@@ -106,7 +106,12 @@ def search_voiceprint():
     data = request.json
     temp_path = data.get("path")
     limit = data.get('limit', 3)
+    confidence_level = data.get('confidence_level', 0.8)
     # temp_path = "sample_audio/test_jacky.wav"
+
+    # Validate confidence_level is between 0 and 1
+    if confidence_level < 0 or confidence_level > 1:
+        return jsonify({"error": "confidence_level must be between 0 and 1"}), 400
 
     try:
         query_embedding = get_embedding(temp_path)
@@ -117,13 +122,15 @@ def search_voiceprint():
         results = (
             session.query(VoiceprintLibrary, similarity_score)
             .filter(VoiceprintLibrary.embedding.is_not(None))
+            # Apply confidence level filter directly in the query
+            .filter(similarity_score >= confidence_level)
             .order_by(VoiceprintLibrary.embedding.cosine_distance(query_embedding),similarity_score.desc())
             .limit(limit)
             .all()
         )
 
-        if not results:
-            return jsonify({"message": "No matching voiceprint found."}), 404
+        # if not results:
+        #     return jsonify({"message": "No matching voiceprint found."}), 404
 
         # Format the results
         response = []
