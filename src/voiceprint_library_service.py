@@ -14,6 +14,8 @@ from flask import Flask, request, jsonify
 import requests
 from werkzeug.utils import secure_filename
 import librosa
+from typing import Optional, Union
+
 
 load_dotenv()
 
@@ -47,7 +49,7 @@ session = Session()
 
 
 
-def get_embedding(file_wav) -> List[float]:
+def get_embedding(file_wav: Union[str, Path, np.ndarray]) -> List[float]:
     """Get embedding vector from OpenAI."""
     try:
         wav = preprocess_wav(file_wav)
@@ -70,21 +72,12 @@ def get_embedding(file_wav) -> List[float]:
 # print(embed)
 
 
-# @app.route('/insert_voiceprint', methods=['POST'])
 def insert_voiceprint(request):
-    # data = request.json
     name = request.form.get("name")
     email = request.form.get("email")
     department = request.form.get("department")
     position = request.form.get("position")
     audio_file = request.files.get("audio_file")  # Get uploaded file
-
-    # audio_path = data.get("audio_path")  # Path to audio file
-    # audio_path = "../sample_audio/enrollment_voiceprint_kelvin.wav"
-    #
-    # if not all([name, audio_path]):
-    #     return jsonify({"error": "Missing required fields: name and audio_path are required."}), 400
-
 
     if not all([name, audio_file]):
         return jsonify({"error": "Missing required fields: name and audio_file are required."}), 400
@@ -103,7 +96,6 @@ def insert_voiceprint(request):
     os.remove(file_path)  # Delete the temporary file after loading
 
     try:
-        # embedding = get_embedding(Path(audio_path))
         embedding = get_embedding(wav_np)
         voiceprint = VoiceprintLibrary(
             name=name,
@@ -121,20 +113,12 @@ def insert_voiceprint(request):
 
 
 @app.route('/search_voiceprint', methods=['POST'])
-def search_voiceprint(data_path, data):
-    """Search for the closest matching voiceprint in the database by sending a .wav file."""
-    # if 'file' not in request.files:
-    #     return jsonify({"error": "No file uploaded"}), 400
-
-
-    # temp_path = data.get("path")
-    # limit = data.get('limit', 3)
-    # confidence_level = data.get('confidence_level', 0.8)
+def search_voiceprint(data_path):
+    """Search for the closest matching voiceprint in the database by sending a path with .wav file."""
 
     temp_path = data_path
     limit = 3
     confidence_level = 0.8
-
 
     # Validate confidence_level is between 0 and 1
     if confidence_level < 0 or confidence_level > 1:
@@ -154,7 +138,6 @@ def search_voiceprint(data_path, data):
             .limit(limit)
             .all()
         )
-
 
         # Format the results
         response = []
