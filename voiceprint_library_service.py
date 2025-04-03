@@ -94,8 +94,8 @@ def insert_voiceprint():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/search_voiceprint', methods=['POST'])
-def search_voiceprint():
+# @app.route('/search_voiceprint', methods=['POST'])
+def search_voiceprint(data):
     """Search for the closest matching voiceprint in the database by sending a .wav file."""
     # if 'file' not in request.files:
     #     return jsonify({"error": "No file uploaded"}), 400
@@ -103,7 +103,7 @@ def search_voiceprint():
     # file = request.files['file']
     # temp_path = Path("./temp_audio.wav")
     # file.save(temp_path)
-    data = request.json
+    # data = request.json
     temp_path = data.get("path")
     limit = data.get('limit', 3)
     confidence_level = data.get('confidence_level', 0.8)

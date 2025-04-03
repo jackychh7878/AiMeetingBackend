@@ -6,6 +6,7 @@ from utilities import check_status, fetch_completed_transcription, mp4_to_base64
 from pydub import AudioSegment
 from openai import AsyncAzureOpenAI
 from typing import List
+from voiceprint_library_service import search_voiceprint
 
 # Load environment variables
 load_dotenv()
@@ -154,6 +155,15 @@ def call_speech_to_text_api():
     response = requests.post("https://portal-demo.fano.ai/speech/long-running-recognize", json=payload, headers=headers)
 
     return response.json()
+
+@app.route('/search_voiceprint', methods=['POST'])
+def search_voiceprint_api():
+    try:
+        data = request.json
+        result = search_voiceprint(data)
+        return result, 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
