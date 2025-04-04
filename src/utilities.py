@@ -129,12 +129,7 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
 
 if __name__ == '__main__':
     # mp4_to_base64(mp4_url="")
-    # mp4_url = "https://catomindst.blob.core.windows.net/meeting/Walk%20through%20AKA%20Phase%201%20&%202/Walk%20through%20AKA%20Phase%201%20%2526%202-20250221_110217-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A41%3A13Z&se=2026-03-28T10%3A41%3A00Z&sr=b&sp=r&sig=5xbnTOyhWLWGkNXY1bt%2BnfBHJpGciCWTdYslukS1qo4%3D"
-    # mp4_url = "https://catomindst.blob.core.windows.net/meeting/AKA%20Vehicle%20module/AKA%20Vehicle%20module-20250318_110731-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A45%3A43Z&se=2026-03-28T10%3A45%3A00Z&sr=b&sp=r&sig=eIC2yJlCMVhI43K8i5FPbSz0oeL487oDFTJl2dpI%2BgY%3D"
-    # mp4_url = "https://catomindst.blob.core.windows.net/meeting/AKA%20service%20roster%20discussion/AKA%20service%20roster%20discussion-20250318_153122-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A46%3A20Z&se=2026-03-28T10%3A46%3A00Z&sr=b&sp=r&sig=Q5R%2BtjQ7Jt2nASZ6z3tN1l7ooMiyAwF5W4CUOMoxp8g%3D"
-    mp4_url = "https://catomindst.blob.core.windows.net/meeting/Walk%20through%20AKA%20Phase%201%20&%202/Walk%20through%20AKA%20Phase%201%20%2526%202-20250221_110217-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A41%3A13Z&se=2026-03-28T10%3A41%3A00Z&sr=b&sp=r&sig=5xbnTOyhWLWGkNXY1bt%2BnfBHJpGciCWTdYslukS1qo4%3D"
-
-    mp4_to_wav_file(mp4_url=mp4_url)
+    # mp4_to_wav_file(mp4_url=mp4_url)
     # extract_audio_segment(output_name="temp_clip_heidi", start_time=32.0, end_time=59.0)
     # extract_audio_segment(output_name="temp_clip_kelvin", start_time=192.0, end_time=205.0)
     # extract_audio_segment(output_name="temp_clip_ray", start_time=2175.0, end_time=2193.0)
