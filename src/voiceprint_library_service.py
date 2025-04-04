@@ -21,6 +21,7 @@ load_dotenv()
 
 # Set a directory for temporary file storage
 UPLOAD_FOLDER = "uploads"
+ALLOWED_EXTENSIONS = {'wav'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
@@ -62,6 +63,8 @@ def get_embedding(file_wav: Union[str, Path, np.ndarray]) -> List[float]:
         print(f"Error getting embedding: {e}")
         return [0] * 256  # Return zero vector on error
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def insert_voiceprint(request):
@@ -69,40 +72,39 @@ def insert_voiceprint(request):
     email = request.form.get("email")
     department = request.form.get("department")
     position = request.form.get("position")
-    audio_file = request.files.get("audio_file")  # Get uploaded file
+    audio_files = request.files.getlist("audio_files")  # Get list of uploaded files
 
-    if not all([name, audio_file]):
-        return jsonify({"error": "Missing required fields: name and audio_file are required."}), 400
+    if not name or not audio_files or any(file.filename == '' for file in audio_files):
+        return jsonify({"error": "Missing required fields: name and audio_files are required."}), 400
 
-    # Ensure the file is a .wav file
-    if not audio_file.filename.lower().endswith(".wav"):
-        return jsonify({"error": "Invalid file format. Only .wav files are allowed."}), 400
+    for audio_file in audio_files:
+        if audio_file and allowed_file(audio_file.filename):
+            filename = secure_filename(audio_file.filename)
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            audio_file.save(file_path)
 
-    # Save the uploaded file temporarily
-    filename = secure_filename(audio_file.filename)
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    audio_file.save(file_path)
+            # Process the audio file
+            try:
+                wav_np, sr = librosa.load(file_path, sr=None)  # Load audio
+                embedding = get_embedding(wav_np)
+                voiceprint = VoiceprintLibrary(
+                    name=name,
+                    email=email,
+                    department=department,
+                    position=position,
+                    embedding=embedding
+                )
+                session.add(voiceprint)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                return jsonify({"error": str(e)}), 500
+            finally:
+                os.remove(file_path)  # Delete the temporary file after processing
+        else:
+            return jsonify({"error": f"Invalid file format for file {audio_file.filename}. Only .wav files are allowed."}), 400
 
-    # Convert audio file to a NumPy array
-    wav_np, sr = librosa.load(file_path, sr=None)  # Load audio
-    os.remove(file_path)  # Delete the temporary file after loading
-
-    try:
-        embedding = get_embedding(wav_np)
-        voiceprint = VoiceprintLibrary(
-            name=name,
-            email=email,
-            department=department,
-            position=position,
-            embedding=embedding
-        )
-        session.add(voiceprint)
-        session.commit()
-        return jsonify({"message": "Voiceprint inserted successfully!"})
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-
+    return jsonify({"message": "All voiceprints inserted successfully!"})
 
 def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
     """Search for the closest matching voiceprint in the database by sending a path with .wav file."""
