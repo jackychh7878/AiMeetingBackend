@@ -111,7 +111,7 @@ def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
 
     temp_path = file_wav
     limit = 3
-    confidence_level = 0.7
+    confidence_level = 0.8
 
     # Validate confidence_level is between 0 and 1
     if confidence_level < 0 or confidence_level > 1:
