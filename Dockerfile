@@ -20,12 +20,22 @@ RUN pip install gunicorn
 # Copy the rest of the application
 COPY . .
 
+# Create uploads directory
+RUN mkdir -p uploads
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+ENV GUNICORN_CMD_ARGS="--timeout=300 --workers=2 --threads=4 --worker-class=gthread"
 
 # Expose the port
 EXPOSE 8000
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Command to run the application
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"] 
