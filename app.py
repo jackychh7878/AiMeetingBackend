@@ -12,7 +12,7 @@ load_dotenv()
 app = Flask(__name__)
 
 
-@app.route('/transcription', methods=['POST'])
+@app.route('/azure_transcription', methods=['POST'])
 def azure_transcription_api():
     try:
         result = azure_transcription(request)
