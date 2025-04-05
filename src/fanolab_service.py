@@ -4,7 +4,7 @@ import requests
 from pydub import AudioSegment
 from flask import Flask, request, jsonify, send_from_directory
 from utilities import mp4_to_wav_file, mp4_to_base64
-from azure_service import upload_file_and_get_sas_url, delete_blob
+from azure_service import azure_upload_file_and_get_sas_url, azure_delete_blob
 import time
 
 # Load environment variables
@@ -56,7 +56,7 @@ def fanolab_transcription(url: str):
         return jsonify({"error": "Failed to process audio"}), 500
 
     # Upload audio file to Azure Blob Storage
-    wav_url = upload_file_and_get_sas_url(file_path=wav_path, blob_name=AZURE_BLOB_NAME)
+    wav_url = azure_upload_file_and_get_sas_url(file_path=wav_path, blob_name=AZURE_BLOB_NAME)
     if not wav_url:
         return jsonify({"error": "Failed to upload audio"}), 500
 
@@ -85,7 +85,7 @@ def fanolab_transcription(url: str):
     if response:
         # Wait for 5 seconds before deleting the blob
         time.sleep(5)
-        delete_blob(blob_name=AZURE_BLOB_NAME)
+        azure_delete_blob(blob_name=AZURE_BLOB_NAME)
 
     return response.json()
 

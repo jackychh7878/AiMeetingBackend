@@ -20,11 +20,11 @@ def azure_transcription(request):
     data = request.get_json()
     url = data.get('url')
     try:
-        content_url_list, sys_ids = check_status(url)
+        content_url_list, sys_ids = azure_check_status(url)
         if content_url_list != "In Progress":
             output_list = []
             for i, content_url in enumerate(content_url_list[:-1]):
-                speaker_text_pairs, speaker_stats, total_duration, source_url = fetch_completed_transcription(content_url)
+                speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(content_url)
                 result_dict = {
                     "sys_id": sys_ids[i] if i < len(sys_ids) else None,
                     "source_url": source_url,
@@ -40,7 +40,7 @@ def azure_transcription(request):
 
 
 
-def check_status(url: str):
+def azure_check_status(url: str):
     response = requests.get(url, headers=headers)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
@@ -81,7 +81,7 @@ def check_status(url: str):
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-def fetch_completed_transcription(url: str):
+def azure_fetch_completed_transcription(url: str):
     response = requests.get(url)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
@@ -160,7 +160,7 @@ def fetch_completed_transcription(url: str):
 
 
 
-def upload_file_and_get_sas_url(file_path, blob_name):
+def azure_upload_file_and_get_sas_url(file_path, blob_name):
     """
     Uploads a file to Azure Blob Storage and generates a temporary SAS URL.
 
@@ -207,7 +207,7 @@ def upload_file_and_get_sas_url(file_path, blob_name):
         return None
 
 
-def delete_blob(blob_name):
+def azure_delete_blob(blob_name):
     """
     Deletes a blob from Azure Blob Storage.
 
