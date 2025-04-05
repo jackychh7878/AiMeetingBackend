@@ -15,6 +15,9 @@ headers = {
     "Content-Type": "application/json"
 }
 
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 
 def azure_transcription(request):
     data = request.get_json()
@@ -78,8 +81,6 @@ def azure_check_status(url: str):
         return "In Progress"
 
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def azure_fetch_completed_transcription(url: str):
     response = requests.get(url)
