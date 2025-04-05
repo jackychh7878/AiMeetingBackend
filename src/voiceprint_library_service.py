@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import update
+from sqlalchemy import update, delete
 from flask import Flask, request, jsonify
 import requests
 from werkzeug.utils import secure_filename
@@ -77,34 +77,41 @@ def insert_voiceprint(request):
     if not name or not audio_files or any(file.filename == '' for file in audio_files):
         return jsonify({"error": "Missing required fields: name and audio_files are required."}), 400
 
-    for audio_file in audio_files:
-        if audio_file and allowed_file(audio_file.filename):
-            filename = secure_filename(audio_file.filename)
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            audio_file.save(file_path)
+    try:
+        # Delete existing records with the same email
+        delete_stmt = delete(VoiceprintLibrary).where(VoiceprintLibrary.email == email)
+        session.execute(delete_stmt)
 
-            # Process the audio file
-            try:
-                wav_np, sr = librosa.load(file_path, sr=None)  # Load audio
-                embedding = get_embedding(wav_np)
-                voiceprint = VoiceprintLibrary(
-                    name=name,
-                    email=email,
-                    department=department,
-                    position=position,
-                    embedding=embedding
-                )
-                session.add(voiceprint)
-                session.commit()
-            except Exception as e:
-                session.rollback()
-                return jsonify({"error": str(e)}), 500
-            finally:
-                os.remove(file_path)  # Delete the temporary file after processing
-        else:
-            return jsonify({"error": f"Invalid file format for file {audio_file.filename}. Only .wav files are allowed."}), 400
+        for audio_file in audio_files:
+            if audio_file and allowed_file(audio_file.filename):
+                filename = secure_filename(audio_file.filename)
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                audio_file.save(file_path)
 
-    return jsonify({"message": "All voiceprints inserted successfully!"})
+                # Process the audio file
+                try:
+                    wav_np, sr = librosa.load(file_path, sr=None)  # Load audio
+                    embedding = get_embedding(wav_np)
+                    voiceprint = VoiceprintLibrary(
+                        name=name,
+                        email=email,
+                        department=department,
+                        position=position,
+                        embedding=embedding
+                    )
+                    session.add(voiceprint)
+                except Exception as e:
+                    session.rollback()
+                    return jsonify({"error": str(e)}), 500
+                finally:
+                    os.remove(file_path)  # Delete the temporary file after processing
+            else:
+                return jsonify({"error": f"Invalid file format for file {audio_file.filename}. Only .wav files are allowed."}), 400
+        session.commit()
+        return jsonify({"message": "All voiceprints inserted successfully!"})
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
     """Search for the closest matching voiceprint in the database by sending a path with .wav file."""
