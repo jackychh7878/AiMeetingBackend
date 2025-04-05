@@ -90,6 +90,6 @@ def fanolab_transcription(url: str):
     return response.json()
 
 if __name__ == '__main__':
-    soruce_url = "https://catomindst.blob.core.windows.net/meeting/Call%20with%20Bin%20Dong/Call%20with%20Bin%20Dong-20250206_095433-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T03%3A29%3A02Z&se=2026-03-28T03%3A29%3A00Z&sr=b&sp=r&sig=RrEeHA%2BCDXSeXLMmeYmnUpUAB%2Fl2516fIJosEDwkr4s%3D"
+    soruce_url = ""
     response = fanolab_transcription(url=soruce_url)
     print(response)
