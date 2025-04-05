@@ -54,6 +54,9 @@ def fanolab_submit_transcription(request):
     """
     data = request.get_json()
     source_url = data.get('source_url')
+    language_code = data.get('language_code', 'yue-x-auto')
+    sample_rate_hertz = data.get('sample_rate_hertz', 16000)
+    enable_automatic_punctuation = data.get('enable_auto_punctuation', False)
 
     if not source_url:
         return jsonify({"error": "URL is required"}), 400
@@ -71,10 +74,11 @@ def fanolab_submit_transcription(request):
     # Prepare API request
     payload = {
         "config": {
-            "languageCode": "yue-x-auto",
-            "maxAlternatives": 2,
+            "languageCode": language_code,
+            "sampleRateHertz": sample_rate_hertz,
+            "maxAlternatives": 1,
             "enableSeparateRecognitionPerChannel": False,
-            "enableAutomaticPunctuation": True
+            "enableAutomaticPunctuation": enable_automatic_punctuation
         },
         "enableWordTimeOffsets": True,
         "diarizationConfig": {
