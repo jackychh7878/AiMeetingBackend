@@ -18,14 +18,17 @@ def azure_transcription(request):
     data = request.get_json()
     url = data.get('url')
     try:
-        content_url_list = check_status(url)
+        content_url_list, sys_ids = check_status(url)
         if content_url_list != "In Progress":
             output_list = []
-            for content_url in content_url_list[:-1]:
-                speaker_text_pairs, speaker_stats, total_duration = fetch_completed_transcription(content_url)
-                result_dict = { "speaker_stats": speaker_stats,
-                                "total_duration": total_duration,
-                                "transcriptions": speaker_text_pairs}
+            for i, content_url in enumerate(content_url_list[:-1]):
+                speaker_text_pairs, speaker_stats, total_duration, source_url = fetch_completed_transcription(content_url)
+                result_dict = {
+                    "sys_id": sys_ids[i] if i < len(sys_ids) else None,
+                    "source_url": source_url,
+                    "speaker_stats": speaker_stats,
+                    "total_duration": total_duration,
+                    "transcriptions": speaker_text_pairs}
                 output_list.append(result_dict)
             return output_list
         else:
@@ -41,6 +44,19 @@ def check_status(url: str):
     json_data = response.json()
 
     transcribing_status = json_data.get("status", "")
+    display_name = json_data.get("displayName")
+
+    # Extract sys_id values
+    sys_ids = []
+    if "sys_id:" in display_name:
+        sys_id_part = display_name.split("sys_id:")[-1].strip()
+        sys_ids = []
+        for id in sys_id_part.split(','):
+            id = id.strip()
+            if id.isdigit():
+                sys_ids.append(int(id))
+            elif id:  # Check if the id is not empty
+                sys_ids.append(id)
 
     if transcribing_status == "Succeeded":
         file_url = json_data.get("links", {}).get("files")  # Avoids unnecessary empty string
@@ -55,7 +71,7 @@ def check_status(url: str):
                 for item in values:
                     content_url = item.get("links", {}).get("contentUrl")
                     response_url_list.append(content_url)
-                return response_url_list
+                return response_url_list, sys_ids
     else:
         return "In Progress"
 
@@ -69,6 +85,7 @@ def fetch_completed_transcription(url: str):
     json_data = response.json()
 
     speaker_text_pairs = []
+    source_url = json_data.get("source")
     speaker_stats = defaultdict(lambda: {"total_duration": 0, "total_words": 0, "segments": []})
     total_duration = 0
 
@@ -137,5 +154,4 @@ def fetch_completed_transcription(url: str):
         else:
             stats["identified_name"] = "unknown"
 
-    return speaker_text_pairs, speaker_stats, total_duration
-
+    return speaker_text_pairs, speaker_stats, total_duration, source_url
