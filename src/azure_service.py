@@ -4,6 +4,8 @@ import os
 from collections import defaultdict
 from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
+from datetime import datetime, timedelta
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 
 # Load environment variables
 load_dotenv()
@@ -155,3 +157,88 @@ def fetch_completed_transcription(url: str):
             stats["identified_name"] = "unknown"
 
     return speaker_text_pairs, speaker_stats, total_duration, source_url
+
+
+
+def upload_file_and_get_sas_url(file_path, blob_name):
+    """
+    Uploads a file to Azure Blob Storage and generates a temporary SAS URL.
+
+    :param file_path: Path to the local file to be uploaded.
+    :param blob_name: Name for the blob in Azure Storage.
+
+    :return: SAS URL string for the uploaded blob.
+    """
+    try:
+        container_name = os.getenv('AZURE_CONTAINER_NAME')
+        account_name = os.getenv('AZURE_ACCOUNT_NAME')
+        account_key = os.getenv('AZURE_ACCOUNT_KEY')
+
+        # Construct the BlobServiceClient using the account URL and account key
+        account_url = f"https://{account_name}.blob.core.windows.net"
+        blob_service_client = BlobServiceClient(account_url=account_url, credential=account_key)
+
+        # Get the container client
+        container_client = blob_service_client.get_container_client(container_name)
+
+        # Upload the file
+        with open(file_path, "rb") as data:
+            blob_client = container_client.upload_blob(name=blob_name, data=data, overwrite=True)
+
+        # Set the SAS token expiration time (e.g., 1 hour from now)
+        sas_expiry = datetime.now() + timedelta(hours=1)
+
+        # Generate the SAS token with read permissions
+        sas_token = generate_blob_sas(
+            account_name=account_name,
+            container_name=container_name,
+            blob_name=blob_name,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=sas_expiry
+        )
+
+        # Construct the full URL with the SAS token
+        sas_url = f"{account_url}/{container_name}/{blob_name}?{sas_token}"
+        return sas_url
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
+def delete_blob(blob_name):
+    """
+    Deletes a blob from Azure Blob Storage.
+
+    :param blob_name: Name of the blob to be deleted.
+    :return: Boolean indicating whether the deletion was successful.
+    """
+    try:
+        # Retrieve Azure Storage account details from environment variables
+        container_name = os.getenv('AZURE_CONTAINER_NAME')
+        account_name = os.getenv('AZURE_ACCOUNT_NAME')
+        account_key = os.getenv('AZURE_ACCOUNT_KEY')
+
+        # Construct the BlobServiceClient using the account URL and account key
+        account_url = f"https://{account_name}.blob.core.windows.net"
+        blob_service_client = BlobServiceClient(account_url=account_url, credential=account_key)
+
+        # Get the container client
+        container_client = blob_service_client.get_container_client(container_name)
+
+        # Delete the blob
+        container_client.delete_blob(blob_name, delete_snapshots='include')
+        print(f"Blob '{blob_name}' deleted successfully.")
+        return True
+
+    except Exception as e:
+        print(f"An error occurred while deleting the blob: {e}")
+        return False
+
+
+# if __name__ == '__main__':
+#     response = upload_file_and_get_sas_url(file_path='./uploads/temp_audio.wav', blob_name='temp_audio.wav')
+#     print(response)
+#     response = delete_blob('temp_audio')
+#     print(response)
