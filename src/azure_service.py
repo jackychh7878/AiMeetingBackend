@@ -257,16 +257,22 @@ def azure_extract_speaker_clip(request):
     sys_id = data.get('sys_id')
     mp4_url = data.get('source_url')
     transcription_url = data.get('azure_url')
-    # sys_id = '9'
-    # if sys_id.isdigit():
-    #     sys_id = int(sys_id)
-    # mp4_url = "https://catomindst.blob.core.windows.net/meeting/AKA%20Vehicle%20module/AKA%20Vehicle%20module-20250318_110731-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A45%3A43Z&se=2026-03-28T10%3A45%3A00Z&sr=b&sp=r&sig=eIC2yJlCMVhI43K8i5FPbSz0oeL487oDFTJl2dpI%2BgY%3D",
-    # transcription_url = "https://southeastasia.api.cognitive.microsoft.com/speechtotext/v3.2-preview.2/transcriptions/6b559d3e-b897-443e-8095-34edbe23c1f1"
-
+    
     if not mp4_url or not transcription_url:
         return {"error": "Both source_url and azure_url are required"}, 400
         
     try:
+        # Clean up upload folder first
+        for filename in os.listdir(UPLOAD_FOLDER):
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+        
         # First get the transcription results
         content_url_list, sys_ids = azure_check_status(transcription_url)
         if content_url_list == "In Progress":
