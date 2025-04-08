@@ -1,6 +1,7 @@
 ﻿from dotenv import load_dotenv
 import requests
 import os
+import shutil
 from collections import defaultdict
 from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
@@ -82,7 +83,7 @@ def azure_check_status(url: str):
 
 
 
-def azure_fetch_completed_transcription(url: str):
+def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True):
     response = requests.get(url)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
@@ -117,45 +118,46 @@ def azure_fetch_completed_transcription(url: str):
             })
             total_duration += duration
 
-    # Calculate percentages and words per minute
-    for speaker, stats in speaker_stats.items():
-        stats["percentage"] = (stats["total_duration"] / total_duration) * 100
-        stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60
+    # Match voiceprint, Calculate percentages and words per minute
+    if match_voiceprint:
+        for speaker, stats in speaker_stats.items():
+            stats["percentage"] = (stats["total_duration"] / total_duration) * 100
+            stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60
 
-        # Sort segments by duration and get top 3
-        stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
-        top_segments = stats["segments"][:3]
+            # Sort segments by duration and get top 3
+            stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
+            top_segments = stats["segments"][:3]
 
-        # Extract audio segments and perform voiceprint matching
-        if len(top_segments) >= 1:
-            # Extract audio segments
-            for i, segment in enumerate(top_segments):
-                output_name = f"speaker_{speaker}_segment_{i}"
-                extract_audio_segment(output_name, segment["start"], segment["end"])
-                
-                # Perform voiceprint matching
-                wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
-                matches = search_voiceprint(wav_path)
-                
-                # Get the best match
-                if matches:
-                    # Convert response to JSON data
-                    matches_data = matches.get_json()
-                    if matches_data and len(matches_data) > 0:
-                        best_match = matches_data[0]
-                        if best_match["similarity"] >= 0.8:  # Confidence threshold
-                            stats["identified_name"] = best_match["name"]
+            # Extract audio segments and perform voiceprint matching
+            if len(top_segments) >= 1:
+                # Extract audio segments
+                for i, segment in enumerate(top_segments):
+                    output_name = f"speaker_{speaker}_segment_{i}"
+                    extract_audio_segment(output_name, segment["start"], segment["end"])
+
+                    # Perform voiceprint matching
+                    wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
+                    matches = search_voiceprint(wav_path)
+
+                    # Get the best match
+                    if matches:
+                        # Convert response to JSON data
+                        matches_data = matches.get_json()
+                        if matches_data and len(matches_data) > 0:
+                            best_match = matches_data[0]
+                            if best_match["similarity"] >= 0.8:  # Confidence threshold
+                                stats["identified_name"] = best_match["name"]
+                            else:
+                                stats["identified_name"] = "unknown"
                         else:
                             stats["identified_name"] = "unknown"
                     else:
                         stats["identified_name"] = "unknown"
-                else:
-                    stats["identified_name"] = "unknown"
-                
-                # Clean up the temporary WAV file
-                os.remove(wav_path)
-        else:
-            stats["identified_name"] = "unknown"
+
+                    # Clean up the temporary WAV file
+                    os.remove(wav_path)
+            else:
+                stats["identified_name"] = "unknown"
 
     return speaker_text_pairs, speaker_stats, total_duration, source_url
 
@@ -238,7 +240,94 @@ def azure_delete_blob(blob_name):
         return False
 
 
+def azure_extract_speaker_clip(request):
+    """
+    Extracts audio segments for each speaker from a meeting recording.
+    
+    Args:
+        request: Flask request object containing:
+            - sys_id: System ID to map with the correct transcription
+            - source_url: URL of the meeting recording MP4 file
+            - azure_url: URL of the Azure transcription results
+            
+    Returns:
+        A zip file containing audio segments for each speaker
+    """
+    data = request.get_json()
+    sys_id = data.get('sys_id')
+    mp4_url = data.get('source_url')
+    transcription_url = data.get('azure_url')
+    # sys_id = '9'
+    # if sys_id.isdigit():
+    #     sys_id = int(sys_id)
+    # mp4_url = "https://catomindst.blob.core.windows.net/meeting/AKA%20Vehicle%20module/AKA%20Vehicle%20module-20250318_110731-Meeting%20Recording.mp4?sv=2023-01-03&st=2025-03-27T10%3A45%3A43Z&se=2026-03-28T10%3A45%3A00Z&sr=b&sp=r&sig=eIC2yJlCMVhI43K8i5FPbSz0oeL487oDFTJl2dpI%2BgY%3D",
+    # transcription_url = "https://southeastasia.api.cognitive.microsoft.com/speechtotext/v3.2-preview.2/transcriptions/6b559d3e-b897-443e-8095-34edbe23c1f1"
+
+    if not mp4_url or not transcription_url:
+        return {"error": "Both source_url and azure_url are required"}, 400
+        
+    try:
+        # First get the transcription results
+        content_url_list, sys_ids = azure_check_status(transcription_url)
+        if content_url_list == "In Progress":
+            return {"error": "Transcription is still in progress"}, 400
+            
+        # Find the index of the matching sys_id
+        try:
+            content_url_index = sys_ids.index(sys_id)
+        except ValueError:
+            return {"error": f"sys_id {sys_id} not found in transcription results"}, 400
+            
+        # Get the content URL for the matching sys_id
+        content_url = content_url_list[content_url_index]
+        speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False)
+        
+        # Download and convert the MP4 to WAV
+        mp4_to_wav_file(mp4_url=mp4_url)
+        
+        # Create a directory to store the speaker clips
+        clips_dir = os.path.join(UPLOAD_FOLDER, "speaker_clips")
+        os.makedirs(clips_dir, exist_ok=True)
+        
+        # Extract segments for each speaker
+        for speaker, stats in speaker_stats.items():
+            # Sort segments by duration and get top 3
+            stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
+            top_segments = stats["segments"][:3]  # Get up to 3 longest segments
+            
+            # Extract each segment
+            for i, segment in enumerate(top_segments):
+                output_name = f"speaker_{speaker}_segment_{i}"
+                extract_audio_segment(output_name, segment["start"], segment["end"])
+                
+                # Move the file to the clips directory
+                src_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
+                dst_path = os.path.join(clips_dir, f"{output_name}.wav")
+                os.rename(src_path, dst_path)
+        
+        # Create a zip file of all clips
+        import zipfile
+        zip_path = os.path.join(UPLOAD_FOLDER, "speaker_clips.zip")
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for root, dirs, files in os.walk(clips_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, clips_dir)
+                    zipf.write(file_path, arcname)
+        
+        # Clean up the clips directory
+        shutil.rmtree(clips_dir)
+        
+        # Return the zip file path
+        return {"zip_path": zip_path}
+        
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
 # if __name__ == '__main__':
+#
+#     print(azure_extract_speaker_clip())
 #     response = upload_file_and_get_sas_url(file_path='./uploads/temp_audio.wav', blob_name='temp_audio.wav')
 #     print(response)
 #     response = delete_blob('temp_audio')

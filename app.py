@@ -5,7 +5,7 @@ import requests
 from pydub import AudioSegment
 from openai import AsyncAzureOpenAI
 from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
-from src.azure_service import azure_transcription
+from src.azure_service import azure_transcription, azure_extract_speaker_clip
 from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription
 
 # Load environment variables
@@ -53,6 +53,20 @@ def search_voiceprint_api():
         return result, 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/azure_extract_speaker_clip', methods=['POST'])
+def azure_extract_speaker_clip_api():
+    try:
+        result = azure_extract_speaker_clip(request)
+        if "error" in result:
+            return jsonify(result), result.get("status", 500)
+        return send_from_directory(
+            directory=os.path.dirname(result["zip_path"]),
+            path=os.path.basename(result["zip_path"]),
+            as_attachment=True
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
