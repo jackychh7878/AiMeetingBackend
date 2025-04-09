@@ -58,13 +58,8 @@ def search_voiceprint_api():
 def azure_extract_speaker_clip_api():
     try:
         result = azure_extract_speaker_clip(request)
-        if "error" in result:
-            return jsonify(result), result.get("status", 500)
-        return send_from_directory(
-            directory=os.path.dirname(result["zip_path"]),
-            path=os.path.basename(result["zip_path"]),
-            as_attachment=True
-        )
+
+        return result, 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

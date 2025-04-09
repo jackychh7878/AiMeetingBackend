@@ -324,8 +324,15 @@ def azure_extract_speaker_clip(request):
         # Clean up the clips directory
         shutil.rmtree(clips_dir)
         
-        # Return the zip file path
-        return {"zip_path": zip_path}
+        # Upload the zip file to Azure Blob Storage and get a SAS URL
+        blob_name = "speaker_clips.zip"  # Use a consistent name to overwrite existing files
+        download_url = azure_upload_file_and_get_sas_url(zip_path, blob_name)
+        
+        # Clean up the local zip file
+        os.remove(zip_path)
+        
+        # Return the download URL
+        return {"download_url": download_url}
         
     except Exception as e:
         return {"error": str(e)}, 500
