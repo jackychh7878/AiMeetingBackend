@@ -254,10 +254,9 @@ def azure_extract_speaker_clip(request):
         A zip file containing audio segments for each speaker
     """
     data = request.get_json()
-    sys_id = data.get('sys_id')
     mp4_url = data.get('source_url')
     transcription_url = data.get('azure_url')
-    
+
     if not mp4_url or not transcription_url:
         return {"error": "Both source_url and azure_url are required"}, 400
         
@@ -280,9 +279,22 @@ def azure_extract_speaker_clip(request):
             
         # Find the index of the matching sys_id
         try:
-            content_url_index = sys_ids.index(sys_id)
+            target_content_url = ''
+            mp4_sig = mp4_url.split("sig=")[1]
+            for content_url in content_url_list:
+                response = requests.get(content_url)
+                response.raise_for_status()  # Raises an error for bad responses
+                json_data = response.json()
+                url = json_data.get('source')
+                content_url_sig = url.split("sig=")[1]
+                if mp4_sig == content_url_sig:
+                    target_content_url = content_url
+                    break
+
+            # content_url_index = sys_ids.index(sys_id)
+            content_url_index = content_url_list.index(target_content_url)
         except ValueError:
-            return {"error": f"sys_id {sys_id} not found in transcription results"}, 400
+            return {"error": f"target content url not found"}, 400
             
         # Get the content URL for the matching sys_id
         content_url = content_url_list[content_url_index]
@@ -339,7 +351,7 @@ def azure_extract_speaker_clip(request):
 
 
 # if __name__ == '__main__':
-#
+#     print(azure_extract_speaker_clip())
 #     print(azure_extract_speaker_clip())
 #     response = upload_file_and_get_sas_url(file_path='./uploads/temp_audio.wav', blob_name='temp_audio.wav')
 #     print(response)
