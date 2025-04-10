@@ -247,7 +247,6 @@ def azure_extract_speaker_clip(request):
     
     Args:
         request: Flask request object containing:
-            - sys_id: System ID to map with the correct transcription
             - source_url: URL of the meeting recording MP4 file
             - azure_url: URL of the Azure transcription results
             
