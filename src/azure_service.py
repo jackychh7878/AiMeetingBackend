@@ -2,6 +2,7 @@
 import requests
 import os
 import shutil
+import zipfile
 from collections import defaultdict
 from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
@@ -291,7 +292,9 @@ def azure_extract_speaker_clip(request):
                     target_content_url = content_url
                     break
 
-            # content_url_index = sys_ids.index(sys_id)
+            if target_content_url == '':
+                return {"error": f"target content url not found"}, 400
+
             content_url_index = content_url_list.index(target_content_url)
         except ValueError:
             return {"error": f"target content url not found"}, 400
@@ -324,7 +327,6 @@ def azure_extract_speaker_clip(request):
                 os.rename(src_path, dst_path)
         
         # Create a zip file of all clips
-        import zipfile
         zip_path = os.path.join(UPLOAD_FOLDER, "speaker_clips.zip")
         with zipfile.ZipFile(zip_path, 'w') as zipf:
             for root, dirs, files in os.walk(clips_dir):
