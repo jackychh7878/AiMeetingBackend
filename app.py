@@ -7,6 +7,7 @@ from openai import AsyncAzureOpenAI
 from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
 from src.azure_service import azure_transcription, azure_extract_speaker_clip, azure_match_speaker_voiceprint
 from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription
+from src.tflow_service import get_meeting_minutes
 
 # Load environment variables
 load_dotenv()
@@ -67,6 +68,14 @@ def azure_extract_speaker_clip_api():
 def azure_match_speaker_voiceprint_api():
     try:
         result = azure_match_speaker_voiceprint(request)
+        return result, 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/tflow_get_meeting_minutes', methods=['POST'])
+def tflow_get_meeting_minutes_api():
+    try:
+        result = get_meeting_minutes(request)
         return result, 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
