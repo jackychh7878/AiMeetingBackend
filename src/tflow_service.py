@@ -1,6 +1,96 @@
 ﻿import requests
 import json
 
+def get_project_list(request):
+    """
+    Join the project list with glossary from t-flow
+
+    Parameters:
+    - app_key (str): T-flow app_key
+    - sign (str): T-flow sign
+    - page_size (int): Number of return item
+
+    Returns:
+    - project list data in json format
+    """
+    data = request.get_json()
+    app_key = data.get('app_key')
+    sign = data.get('sign')
+    page_size = data.get('page_size', 50)
+
+    # app_key = "881d8b3c12c8ab12"
+    # sign = "ZGVjZDM3OTAxNDM1ZTJkZWJmYzMwMTk4NDZkMjM0OWQ5YWUyM2FlMWQyYjcxOWNkNTIwYTE3NzE3NTQzMDU4OQ=="
+    # page_size = 50
+
+    # Prepare API request
+    payload = {
+        "appKey": app_key,
+        "sign": sign,
+        "worksheetId": "project_overview",
+        "pageSize": page_size,
+        "pageIndex": 1,
+        "listType": 0,
+        "controls": ["project", "start_date", "overview", "glossary_list"],
+        "filters": []
+    }
+    # Send request to Get Meeting Minutes List API
+    response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+
+    output_list = []
+    if response and response.status_code == 200:
+        project_data_list = response.json().get("data", {}).get("rows", [])
+        for project_data in project_data_list:
+            glossary_rowid_string = project_data.get('glossary_list', '[]')
+            try:
+                glossary_rowid_list = json.loads(glossary_rowid_string)
+                if not glossary_rowid_list:
+                    continue
+            except json.JSONDecodeError:
+                glossary_rowid_list = []
+
+            glossary_payload = {
+                "appKey": app_key,
+                "sign": sign,
+                "worksheetId": "project_glossary_list",
+                "pageSize": 100,
+                "pageIndex": 1,
+                "sortId": "autoid",
+                "listType": 0,
+                "isAsc": True,
+                "controls": ["term", "meaning"],
+                "filters": [
+                    {
+                        "controlId": "rowid",
+                        "spliceType": 1,
+                        "filterType": 2,
+                        "values": glossary_rowid_list
+                    }
+                ]
+            }
+            response_glossary = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=glossary_payload)
+
+            glossary_data = response_glossary.json().get("data", {}).get("rows", [])
+
+            glossary_filtered = [
+                {
+                    "term": item.get("term"),
+                    "meaning": item.get("meaning")
+                }
+                for item in glossary_data
+            ]
+
+            output_json = {
+                'project': project_data['project'],
+                'overview': project_data['overview'],
+                'start_date': project_data['start_date'],
+                'glossary_list': glossary_filtered
+            }
+            output_list.append(output_json)
+    
+    return {"data": output_list}
+
+
+
 def get_meeting_minutes(request):
     """
     Join the meeting minutes data with speaker data from t-flow
@@ -93,6 +183,6 @@ def get_meeting_minutes(request):
 
     return response.json()
 
-# if __name__ == '__main__':
-#     x = get_meeting_minutes()
-#     print(x)
+if __name__ == '__main__':
+    x = get_project_list()
+    print(x)
