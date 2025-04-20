@@ -180,6 +180,6 @@ def get_meeting_minutes(request):
 
     return response.json()
 
-if __name__ == '__main__':
-    x = get_project_list()
-    print(x)
+# if __name__ == '__main__':
+#     x = get_project_list()
+#     print(x)
