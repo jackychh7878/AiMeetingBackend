@@ -18,9 +18,6 @@ def get_project_list(request):
     sign = data.get('sign')
     page_size = data.get('page_size', 50)
 
-    # app_key = "881d8b3c12c8ab12"
-    # sign = "ZGVjZDM3OTAxNDM1ZTJkZWJmYzMwMTk4NDZkMjM0OWQ5YWUyM2FlMWQyYjcxOWNkNTIwYTE3NzE3NTQzMDU4OQ=="
-    # page_size = 50
 
     # Prepare API request
     payload = {
