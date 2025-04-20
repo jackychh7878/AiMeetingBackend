@@ -261,6 +261,8 @@ def get_dashboard(request):
     - app_key (str): T-flow app_key
     - sign (str): T-flow sign
     - dashboard_name (str): Dashboard Name (time_spent_on_project, no_of_meeting_by_project, time_spent_on_project_by_staff, contribution_leaderboard)
+    - start_dt (date): Range start date from
+    - end_dt (date): Range end date to
 
     Returns:
     - project list data in json format
@@ -269,6 +271,8 @@ def get_dashboard(request):
     app_key = data.get('app_key')
     sign = data.get('sign')
     dashboard_name = data.get('dashboard_name')
+    start_dt = data.get('start_dt', None)
+    end_dt = data.get('end_dt', None)
 
     by_project_dashboard = ['time_spent_on_project', 'no_of_meeting_by_project']
     by_staff_dashboard = ['time_spent_on_project_by_staff', 'contribution_leaderboard']
@@ -290,6 +294,21 @@ def get_dashboard(request):
             "controls": ["project", "datetime", "video_name", "duration", "rowid"],
             "filters": []
         }
+        if start_dt is not None:
+            payload['filters'].append({
+                "controlId": "datetime",
+                "spliceType": 1,
+                "filterType": 34,
+                "value": start_dt
+            })
+        if end_dt is not None:
+            payload['filters'].append({
+                "controlId": "datetime",
+                "spliceType": 1,
+                "filterType": 36,
+                "value": end_dt
+            })
+
         # Send request to Get Project Memory List API
         response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
         # Dictionaries to hold summaries
