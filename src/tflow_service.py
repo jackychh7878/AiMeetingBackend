@@ -52,8 +52,8 @@ def get_project_list(request):
                 "pageSize": 100,
                 "pageIndex": 1,
                 "sortId": "autoid",
-                "listType": 0,
                 "isAsc": True,
+                "listType": 0,
                 "controls": ["term", "meaning"],
                 "filters": [
                     {
@@ -84,6 +84,68 @@ def get_project_list(request):
             }
             output_list.append(output_json)
     
+    return {"data": output_list}
+
+def get_project_memory(request):
+    """
+    Get the project memory and massage the return field
+
+    Parameters:
+    - app_key (str): T-flow app_key
+    - sign (str): T-flow sign
+    - page_size (int): Number of return item
+    - project_name (str): Project Name
+
+    Returns:
+    - project list data in json format
+    """
+    data = request.get_json()
+    app_key = data.get('app_key')
+    sign = data.get('sign')
+    page_size = data.get('page_size', 50)
+    project_name = data.get('project_name')
+
+    # Prepare API request
+    payload = {
+        "appKey": app_key,
+        "sign": sign,
+        "worksheetId": "project_memory",
+        "pageSize": page_size,
+        "pageIndex": 1,
+        "sortId": "datetime",
+        "isAsc": True,
+        "listType": 0,
+        "controls": ["project", "datetime", "meeting_minutes", "memory"],
+        "filters": [
+            {
+                "controlId": "project",
+                "spliceType": 1,
+                "filterType": 2,
+                "value": project_name
+            }
+        ]
+    }
+    # Send request to Get Project Memory List API
+    response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+
+    output_list = []
+    if response and response.status_code == 200:
+        project_memory_list = response.json().get("data", {}).get("rows", [])
+
+        # Get the Meeting Minutes Rowid for each project
+        for project_memory in project_memory_list:
+            meeting_minutes_string = project_memory['meeting_minutes']
+            meeting_minutes_json = json.loads(meeting_minutes_string)
+            sourcevalue = meeting_minutes_json[0]['sourcevalue']
+            sourcevalue_dict = json.loads(sourcevalue)
+            meeting_minutes_rowid = sourcevalue_dict['rowid']
+            output_json = {
+                'project': project_memory['project'],
+                'datetime': project_memory['datetime'],
+                'memory': project_memory['memory'],
+                'meeting_minutes_rowid': meeting_minutes_rowid
+            }
+            output_list.append(output_json)
     return {"data": output_list}
 
 
@@ -180,6 +242,6 @@ def get_meeting_minutes(request):
 
     return response.json()
 
-# if __name__ == '__main__':
-#     x = get_project_list()
-#     print(x)
+if __name__ == '__main__':
+    x = get_project_memory()
+    # print(x)
