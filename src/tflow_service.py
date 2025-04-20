@@ -113,7 +113,7 @@ def get_project_memory(request):
         "pageSize": page_size,
         "pageIndex": 1,
         "sortId": "datetime",
-        "isAsc": True,
+        "isAsc": False,
         "listType": 0,
         "controls": ["project", "datetime", "meeting_minutes", "memory"],
         "filters": [
@@ -148,8 +148,6 @@ def get_project_memory(request):
             output_list.append(output_json)
     return {"data": output_list}
 
-
-
 def get_meeting_minutes(request):
     """
     Join the meeting minutes data with speaker data from t-flow
@@ -172,6 +170,8 @@ def get_meeting_minutes(request):
         "appKey": app_key,
         "sign": sign,
         "worksheetId": "meeting_minutes",
+        "sortId": "datetime",
+        "isAsc": False,
         "listType": 0,
         "controls": ["project", "datetime", "video_name", "description", "transcript", "ai_summary", "duration", "process_status", "speaker_map", "rowid"],
         "filters": [
@@ -242,6 +242,6 @@ def get_meeting_minutes(request):
 
     return response.json()
 
-if __name__ == '__main__':
-    x = get_project_memory()
+# if __name__ == '__main__':
+#     x = get_project_memory()
     # print(x)
