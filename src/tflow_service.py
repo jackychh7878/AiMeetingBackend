@@ -2,7 +2,21 @@
 import json
 from collections import defaultdict
 from enum import Enum
+import urllib.parse
 
+# Predefined color palette for better visibility
+COLOR_PALETTE = [
+    "rgba(255, 99, 132, 0.8)",    # Pink
+    "rgba(54, 162, 235, 0.8)",    # Blue
+    "rgba(255, 206, 86, 0.8)",    # Yellow
+    "rgba(75, 192, 192, 0.8)",    # Teal
+    "rgba(153, 102, 255, 0.8)",   # Purple
+    "rgba(255, 159, 64, 0.8)",    # Orange
+    "rgba(199, 199, 199, 0.8)",   # Gray
+    "rgba(83, 102, 255, 0.8)",    # Indigo
+    "rgba(40, 159, 64, 0.8)",     # Green
+    "rgba(210, 199, 199, 0.8)",   # Light Gray
+]
 
 def get_project_list(request):
     """
@@ -251,6 +265,40 @@ class Dashboard(Enum):
     LEADERBOARD = 'contribution_leaderboard'
 
 
+def generate_chart_url(chart_type, data, labels, datasets):
+    """
+    Generate a chart URL using quickchart.io
+    
+    Parameters:
+    - chart_type (str): Type of chart (bar, line, etc.)
+    - data (dict): Chart data
+    - labels (list): Chart labels
+    - datasets (list): Chart datasets
+    
+    Returns:
+    - str: URL of the generated chart
+    """
+    chart_config = {
+        "type": chart_type,
+        "data": {
+            "labels": labels,
+            "datasets": datasets
+        },
+        "options": {
+            "responsive": True,
+            "plugins": {
+                "title": {
+                    "display": True,
+                    "text": data.get("title", "")
+                }
+            }
+        }
+    }
+    
+    # Encode the chart configuration
+    encoded_config = urllib.parse.quote(json.dumps(chart_config))
+    return f"https://quickchart.io/chart?c={encoded_config}"
+
 def get_dashboard(request):
     """
     Get the project dashboard by the dashboard name
@@ -263,7 +311,7 @@ def get_dashboard(request):
     - end_dt (date): Range end date to
 
     Returns:
-    - project list data in json format
+    - project list data in json format with chart_url
     """
     data = request.get_json()
     app_key = data.get('app_key')
@@ -334,6 +382,44 @@ def get_dashboard(request):
                     "total_duration_minutes": total_duration
                 }
                 output_list.append(output_obj)
+            
+            # Generate pie chart for time spent by project
+            labels = [item["project"] for item in output_list]
+            data = [item["total_duration_minutes"] for item in output_list]
+            
+            datasets = [{
+                "data": data,
+                "backgroundColor": COLOR_PALETTE[:len(labels)]
+            }]
+            
+            chart_data = {
+                "type": "outlabeledPie",
+                "data": {
+                    "labels": labels,
+                    "datasets": datasets
+                },
+                "options": {
+                    "plugins": {
+                        "legend": False,
+                        "outlabels": {
+                            "text": "%l %p",
+                            "color": "white",
+                            "stretch": 35,
+                            "font": {
+                                "resizable": True,
+                                "minSize": 12,
+                                "maxSize": 18
+                            }
+                        }
+                    }
+                }
+            }
+            
+            # Encode the chart configuration
+            encoded_config = urllib.parse.quote(json.dumps(chart_data))
+            chart_url = f"https://quickchart.io/chart?c={encoded_config}"
+            return {"data": output_list, "chart_url": chart_url}
+
         if dashboard_name == Dashboard.NO_MEETING_BY_PROJECT.value:
             for project, count in meeting_count_by_project.items():
                 output_obj = {
@@ -341,6 +427,19 @@ def get_dashboard(request):
                     "number_of_meetings": count
                 }
                 output_list.append(output_obj)
+            
+            # Generate chart for number of meetings by project
+            labels = [item["project"] for item in output_list]
+            datasets = [{
+                "label": "Number of Meetings",
+                "data": [item["number_of_meetings"] for item in output_list],
+                "backgroundColor": "rgba(75, 192, 192, 0.5)"
+            }]
+            chart_data = {
+                "title": "Number of Meetings by Project"
+            }
+            chart_url = generate_chart_url("bar", chart_data, labels, datasets)
+            return {"data": output_list, "chart_url": chart_url}
 
     if dashboard_name in by_staff_dashboard:
         # Prepare API request
@@ -394,9 +493,83 @@ def get_dashboard(request):
                     continue
 
                 output_obj = {"name": staff}
+                total_time = 0
                 for project, time in projects.items():
                     output_obj[project] = time
+                    total_time += time
+                output_obj["total_time"] = total_time
                 output_list.append(output_obj)
+            
+            # Generate stacked bar chart for time spent by staff with total labels
+            staff_names = [item["name"] for item in output_list]
+            projects = list(set().union(*[item.keys() for item in output_list]) - {"name", "total_time"})
+            
+            datasets = []
+            for i, project in enumerate(projects):
+                dataset = {
+                    "label": project,
+                    "data": [item.get(project, 0) for item in output_list],
+                    "backgroundColor": COLOR_PALETTE[i % len(COLOR_PALETTE)],
+                    "borderColor": "white",
+                    "borderWidth": 1
+                }
+                datasets.append(dataset)
+            
+            # Add total time dataset
+            datasets.append({
+                "label": "Total Time",
+                "data": [item["total_time"] for item in output_list],
+                "backgroundColor": "rgba(0, 0, 0, 0.1)",
+                "borderColor": "black",
+                "borderWidth": 2,
+                "type": "line",
+                "fill": False
+            })
+            
+            chart_data = {
+                "title": "Time Spent by Staff per Project",
+                "options": {
+                    "plugins": {
+                        "datalabels": {
+                            "display": True,
+                            "formatter": "(val, ctx) => ctx.datasetIndex === datasets.length - 1 ? `${val} min` : ''",
+                            "color": "black",
+                            "font": {
+                                "weight": "bold"
+                            },
+                            "align": "top",
+                            "anchor": "end"
+                        },
+                        "legend": {
+                            "position": "right",
+                            "labels": {
+                                "padding": 20,
+                                "font": {
+                                    "size": 12
+                                }
+                            }
+                        }
+                    },
+                    "scales": {
+                        "x": {
+                            "stacked": True,
+                            "grid": {
+                                "display": False
+                            }
+                        },
+                        "y": {
+                            "stacked": True,
+                            "beginAtZero": True,
+                            "title": {
+                                "display": True,
+                                "text": "Minutes"
+                            }
+                        }
+                    }
+                }
+            }
+            chart_url = generate_chart_url("bar", chart_data, staff_names, datasets)
+            return {"data": output_list, "chart_url": chart_url}
 
         if dashboard_name == Dashboard.LEADERBOARD.value:
             for staff, stats in staff_summary.items():
@@ -417,6 +590,8 @@ def get_dashboard(request):
                     "avg_wpm": f"{avg_wpm:.2f}"
                 }
                 output_list.append(output_obj)
+            
+            return {"data": output_list}
 
     return {"data": output_list}
 
