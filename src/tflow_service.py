@@ -43,8 +43,6 @@ def get_project_list(request):
             glossary_rowid_string = project_data.get('glossary_list', '[]')
             try:
                 glossary_rowid_list = json.loads(glossary_rowid_string)
-                if not glossary_rowid_list:
-                    continue
             except json.JSONDecodeError:
                 glossary_rowid_list = []
 
