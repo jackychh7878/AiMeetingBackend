@@ -143,7 +143,22 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str):
     mp4_to_wav_file(mp4_url=source_url)
 
     # Process each result from Fanolab's response
-    for result in json_data.get("response", {}).get("results", []):
+    results = json_data.get("response", {}).get("results", [])
+    
+    # Sort results by startTime
+    def get_start_time(result):
+        alternatives = result.get("alternatives", [])
+        if alternatives:
+            start_time_str = alternatives[0].get("startTime", "0s")
+            try:
+                return float(start_time_str.rstrip("s"))
+            except ValueError:
+                return 0
+        return 0
+    
+    sorted_results = sorted(results, key=get_start_time)
+    
+    for result in sorted_results:
         alternatives = result.get("alternatives", [])
         if not alternatives:
             continue
