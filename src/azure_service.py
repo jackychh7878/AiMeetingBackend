@@ -93,7 +93,9 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
     speaker_text_pairs = []
     source_url = json_data.get("source")
     speaker_stats = defaultdict(lambda: {"total_duration": 0, "total_words": 0, "segments": []})
-    total_duration = 0
+    
+    # Get total duration from JSON data (convert milliseconds to seconds)
+    total_duration = json_data.get("durationMilliseconds", 0) / 1000
 
     # Get the mp4 source and save the wav as src/uploads/temp_audio.wav
     mp4_to_wav_file(mp4_url=json_data.get("source"))
@@ -118,7 +120,6 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
                 "end": offset + duration,
                 "duration": duration
             })
-            total_duration += duration
 
     # Match voiceprint, Calculate percentages and words per minute
     if match_voiceprint and application_owner:
