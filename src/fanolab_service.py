@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from src.azure_service import azure_upload_file_and_get_sas_url, azure_delete_blob
 from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
+from src.app_owner_control_service import check_quota
 
 # Load environment variables
 load_dotenv()
@@ -57,47 +58,69 @@ def fanolab_submit_transcription(request):
     language_code = data.get('language_code', 'yue-x-auto')
     sample_rate_hertz = data.get('sample_rate_hertz', 16000)
     enable_automatic_punctuation = data.get('enable_auto_punctuation', False)
+    application_owner = data.get('application_owner')
 
     if not source_url:
-        return jsonify({"error": "URL is required"}), 400
+        return {"error": "URL is required"}
+
+    if not application_owner:
+        return {"error": "application_owner is required"}
 
     # Convert MP4 to WAV
     wav_path = mp4_to_wav_file(source_url)
     if not wav_path:
-        return jsonify({"error": "Failed to process audio"}), 500
+        return {"error": "Failed to process audio"}
 
-    # Upload audio file to Azure Blob Storage
-    wav_url = azure_upload_file_and_get_sas_url(file_path=wav_path, blob_name=AZURE_BLOB_NAME)
-    if not wav_url:
-        return jsonify({"error": "Failed to upload audio"}), 500
+    try:
+        # Get duration from WAV file
+        audio = AudioSegment.from_wav(wav_path)
+        duration_seconds = len(audio) / 1000  # Convert milliseconds to seconds
+        duration_hours = duration_seconds / 3600  # Convert to hours
 
-    # Prepare API request
-    payload = {
-        "config": {
-            "languageCode": language_code,
-            "sampleRateHertz": sample_rate_hertz,
-            "maxAlternatives": 1,
-            "enableSeparateRecognitionPerChannel": False,
-            "enableAutomaticPunctuation": enable_automatic_punctuation
-        },
-        "enableWordTimeOffsets": True,
-        "diarizationConfig": {
-            "disableSpeakerDiarization": False
-        },
-        "audio": {
-            "uri": wav_url
+        # # Check quota before proceeding
+        is_allowed, message = check_quota(application_owner, duration_hours)
+
+        if not is_allowed:
+            return {"error": message}, 403
+
+        # Upload audio file to Azure Blob Storage
+        wav_url = azure_upload_file_and_get_sas_url(file_path=wav_path, blob_name=AZURE_BLOB_NAME)
+        if not wav_url:
+            return {"error": "Failed to upload audio"}, 500
+
+        # Prepare API request
+        payload = {
+            "config": {
+                "languageCode": language_code,
+                "sampleRateHertz": sample_rate_hertz,
+                "maxAlternatives": 1,
+                "enableSeparateRecognitionPerChannel": False,
+                "enableAutomaticPunctuation": enable_automatic_punctuation
+            },
+            "enableWordTimeOffsets": True,
+            "diarizationConfig": {
+                "disableSpeakerDiarization": False
+            },
+            "audio": {
+                "uri": wav_url
+            }
         }
-    }
 
-    # Send request to FanoLab API
-    response = requests.post("https://portal-demo.fano.ai/speech/long-running-recognize", json=payload, headers=headers)
+        # Send request to FanoLab API
+        response = requests.post("https://portal-demo.fano.ai/speech/long-running-recognize", json=payload, headers=headers)
 
-    if response:
-        # Wait for 5 seconds before deleting the blob
-        time.sleep(5)
-        azure_delete_blob(blob_name=AZURE_BLOB_NAME)
+        if response:
+            # Wait for 5 seconds before deleting the blob
+            time.sleep(5)
+            azure_delete_blob(blob_name=AZURE_BLOB_NAME)
 
-    return response.json()
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        # Clean up the WAV file
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
 
 
 def fanolab_transcription(request):
@@ -106,6 +129,9 @@ def fanolab_transcription(request):
     source_url = data.get('source_url')
     fanolab_id = data.get('fanolab_id')
     application_owner = data.get('application_owner')
+
+    if not application_owner:
+        return {"error": "application_owner is required"}, 400
 
     try:
         url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
@@ -117,6 +143,7 @@ def fanolab_transcription(request):
 
         if current_status is True:
             speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(source_url=source_url, fanolab_id=fanolab_id, application_owner=application_owner)
+                
             result_dict = {
                 "sys_id": sys_id,
                 "source_url": source_url,
@@ -125,9 +152,9 @@ def fanolab_transcription(request):
                 "transcriptions": speaker_text_pairs}
             return result_dict
         else:
-            return {"transcriptions": "Transcription in progress"}
+            return {"transcriptions": "Transcription in progress"}, 200
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e)}, 500
 
 
 def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, application_owner: str = None):

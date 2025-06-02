@@ -5,16 +5,13 @@ import os
 from dotenv import load_dotenv
 from typing import List, Dict, Any
 from sqlalchemy import create_engine, Column, Integer, String, Text, TIMESTAMP, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.postgresql import JSONB
-from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import update, delete
 from flask import Flask, request, jsonify
-import requests
 from werkzeug.utils import secure_filename
 import librosa
 from typing import Optional, Union
+from src.models import VoiceprintLibrary
 
 
 load_dotenv()
@@ -26,20 +23,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 
-Base = declarative_base()
-
-class VoiceprintLibrary(Base):
-    __tablename__ = 'voiceprint_library'
-
-    sys_id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255))
-    department = Column(String(255))
-    position = Column(String(255))
-    embedding = Column(Vector(256))  # Adjust dimensions as needed
-    metadata_json = Column(JSONB, nullable=False, default=dict)
-    created_dt = Column(TIMESTAMP, server_default='CURRENT_TIMESTAMP')
-
 
 # Replace the environment variable with the properly formatted connection string
 DATABASE_URL = os.getenv("AZURE_POSTGRES_CONNECTION")
@@ -47,7 +30,6 @@ engine = create_engine(DATABASE_URL, connect_args={'client_encoding': 'utf8'})
 
 Session = sessionmaker(bind=engine)
 session = Session()
-
 
 
 def get_embedding(file_wav: Union[str, Path, np.ndarray]) -> List[float]:
@@ -113,7 +95,7 @@ def insert_voiceprint(request):
             else:
                 return jsonify({"error": f"Invalid file format for file {audio_file.filename}. Only .wav files are allowed."}), 400
         session.commit()
-        return jsonify({"message": "All voiceprints inserted successfully!"})
+        return jsonify({"message": "All voiceprints inserted successfully!"}), 201
     except Exception as e:
         session.rollback()
         return jsonify({"error": str(e)}), 500

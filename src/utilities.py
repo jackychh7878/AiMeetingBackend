@@ -95,16 +95,28 @@ def extract_audio_segment(output_name: str, start_time: float, end_time: float) 
 
 def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
     """
-    Downloads an MP4 file, extracts audio as WAV, and saves it.
+    Downloads an audio file, determines if it's WAV or MP4, and saves it as WAV.
     Returns the local file path.
     """
     try:
         mp4_path = os.path.join(save_dir, "temp_audio.mp4")
         wav_path = os.path.join(save_dir, "temp_audio.wav")
 
-        # Step 1: Download MP4
+        # Step 1: Download file and check content type
         response = requests.get(mp4_url, stream=True)
         if response.status_code == 200:
+            content_type = response.headers.get('content-type', '').lower()
+            is_wav = 'audio/wav' in content_type or 'audio/x-wav' in content_type
+
+            # If it's a WAV file, save directly as WAV
+            if is_wav:
+                with open(wav_path, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=1024):
+                        file.write(chunk)
+                print("Downloaded WAV directly")
+                return wav_path
+            
+            # If it's an MP4 or other format, save as MP4 first
             with open(mp4_path, "wb") as file:
                 for chunk in response.iter_content(chunk_size=1024):
                     file.write(chunk)
@@ -112,13 +124,14 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
         else:
             raise Exception(f"Failed to download MP4. Status code: {response.status_code}")
 
-        # Step 2: Convert MP4 to WAV
+        # Step 2: Convert to WAV
         audio = AudioSegment.from_file(mp4_path, format="mp4")
         audio.export(wav_path, format="wav")
         print("Converted to WAV")
 
         # Cleanup MP4 to save space
-        os.remove(mp4_path)
+        if os.path.exists(mp4_path):
+            os.remove(mp4_path)
 
         return wav_path  # Return local WAV file path
 

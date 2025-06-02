@@ -8,6 +8,7 @@ from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
 from datetime import datetime, timedelta
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from src.app_owner_control_service import check_quota
 
 # Load environment variables
 load_dotenv()
@@ -27,20 +28,28 @@ def azure_transcription(request):
     application_owner = data.get('application_owner')
     try:
         content_url_list, sys_ids = azure_check_status(url)
-        if content_url_list != "In Progress":
-            output_list = []
-            for i, content_url in enumerate(content_url_list[:-1]):
-                speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, application_owner=application_owner)
-                result_dict = {
-                    "sys_id": sys_ids[i] if i < len(sys_ids) else None,
-                    "source_url": source_url,
-                    "speaker_stats": speaker_stats,
-                    "total_duration": total_duration,
-                    "transcriptions": speaker_text_pairs}
-                output_list.append(result_dict)
-            return output_list
-        else:
-            return {"transcriptions": "Transcription in progress"}
+        if content_url_list == "In Progress":
+            return {"transcriptions": "Transcription in progress"}, 200
+            
+        output_list = []
+        total_duration_hours = 0
+        for i, content_url in enumerate(content_url_list[:-1]):
+            speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, application_owner=application_owner)
+            result_dict = {
+                "sys_id": sys_ids[i] if i < len(sys_ids) else None,
+                "source_url": source_url,
+                "speaker_stats": speaker_stats,
+                "total_duration": total_duration,
+                "transcriptions": speaker_text_pairs}
+            output_list.append(result_dict)
+            total_duration_hours += total_duration / 3600  # Convert seconds to hours
+
+        # Check quota after getting total duration
+        is_allowed, message = check_quota(application_owner, total_duration_hours)
+        if not is_allowed:
+            return {"error": message}, 403
+            
+        return output_list
     except Exception as e:
         return {"error": str(e)}
 
