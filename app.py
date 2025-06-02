@@ -50,7 +50,9 @@ def insert_voiceprint_api():
 def search_voiceprint_api():
     try:
         data = request.json
-        result = search_voiceprint(data.get('path'))
+        if not data or 'path' not in data or 'application_owner' not in data:
+            return jsonify({'error': 'Both path and application_owner are required'}), 400
+        result = search_voiceprint(data.get('path'), data.get('application_owner'))
         return result, 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

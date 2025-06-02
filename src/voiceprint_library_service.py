@@ -37,7 +37,7 @@ class VoiceprintLibrary(Base):
     department = Column(String(255))
     position = Column(String(255))
     embedding = Column(Vector(256))  # Adjust dimensions as needed
-    # metadata = Column(JSONB, nullable=False, default=dict)
+    metadata_json = Column(JSONB, nullable=False, default=dict)
     created_dt = Column(TIMESTAMP, server_default='CURRENT_TIMESTAMP')
 
 
@@ -72,14 +72,18 @@ def insert_voiceprint(request):
     email = request.form.get("email")
     department = request.form.get("department")
     position = request.form.get("position")
+    application_owner = request.form.get("application_owner")  # Get application owner
     audio_files = request.files.getlist("audio_files")  # Get list of uploaded files
 
-    if not name or not audio_files or any(file.filename == '' for file in audio_files):
-        return jsonify({"error": "Missing required fields: name and audio_files are required."}), 400
+    if not name or not audio_files or any(file.filename == '' for file in audio_files) or not application_owner:
+        return jsonify({"error": "Missing required fields: name, audio_files, and application_owner are required."}), 400
 
     try:
-        # Delete existing records with the same email
-        delete_stmt = delete(VoiceprintLibrary).where(VoiceprintLibrary.email == email)
+        # Delete existing records with the same email and application_owner
+        delete_stmt = delete(VoiceprintLibrary).where(
+            VoiceprintLibrary.email == email,
+            VoiceprintLibrary.metadata_json['application_owner'].astext == application_owner
+        )
         session.execute(delete_stmt)
 
         for audio_file in audio_files:
@@ -97,6 +101,7 @@ def insert_voiceprint(request):
                         email=email,
                         department=department,
                         position=position,
+                        metadata_json={"application_owner": application_owner},  # Store in metadata_json
                         embedding=embedding
                     )
                     session.add(voiceprint)
@@ -113,7 +118,7 @@ def insert_voiceprint(request):
         session.rollback()
         return jsonify({"error": str(e)}), 500
 
-def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
+def search_voiceprint(file_wav: Union[str, Path, np.ndarray], application_owner: str):
     """Search for the closest matching voiceprint in the database by sending a path with .wav file."""
 
     temp_path = file_wav
@@ -124,6 +129,9 @@ def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
     if confidence_level < 0 or confidence_level > 1:
         return jsonify({"error": "confidence_level must be between 0 and 1"}), 400
 
+    if not application_owner:
+        return jsonify({"error": "application_owner is required"}), 400
+
     try:
         query_embedding = get_embedding(temp_path)
 
@@ -132,6 +140,7 @@ def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
         results = (
             session.query(VoiceprintLibrary, similarity_score)
             .filter(VoiceprintLibrary.embedding.is_not(None))
+            .filter(VoiceprintLibrary.metadata_json['application_owner'].astext == application_owner)  # Filter by application owner in metadata_json
             # Apply confidence level filter directly in the query
             .filter(similarity_score >= confidence_level)
             .order_by(VoiceprintLibrary.embedding.cosine_distance(query_embedding),similarity_score.desc())
@@ -148,6 +157,7 @@ def search_voiceprint(file_wav: Union[str, Path, np.ndarray]):
                 "email": person.email,
                 "department": person.department,
                 "position": person.position,
+                "metadata": person.metadata_json,  # Include full metadata_json in response
                 "similarity": float(similarity)
             }
             response.append(response_obj)

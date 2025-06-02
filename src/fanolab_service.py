@@ -103,8 +103,10 @@ def fanolab_submit_transcription(request):
 def fanolab_transcription(request):
     data = request.get_json()
     sys_id = data.get('sys_id')
-    source_url = data.get("source_url")
+    source_url = data.get('source_url')
     fanolab_id = data.get('fanolab_id')
+    application_owner = data.get('application_owner')
+
     try:
         url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
         response = requests.get(url, headers=headers)
@@ -114,7 +116,7 @@ def fanolab_transcription(request):
         current_status = json_data.get('done')
 
         if current_status is True:
-            speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(source_url=source_url, fanolab_id=fanolab_id)
+            speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(source_url=source_url, fanolab_id=fanolab_id, application_owner=application_owner)
             result_dict = {
                 "sys_id": sys_id,
                 "source_url": source_url,
@@ -128,7 +130,7 @@ def fanolab_transcription(request):
         return {"error": str(e)}
 
 
-def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str):
+def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, application_owner: str = None):
     url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
     response = requests.get(url, headers=headers)
     response.raise_for_status()  # Raises an error for bad responses
@@ -206,18 +208,18 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str):
     # Calculate percentages and words per minute; also perform voiceprint matching
     for speaker, stats in speaker_stats.items():
         stats["percentage"] = (stats["total_duration"] / total_duration) * 100 if total_duration > 0 else 0
-        stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60 if stats[ "total_duration"] > 0 else 0
+        stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60 if stats["total_duration"] > 0 else 0
 
         # Sort segments by duration (longest first) and get top 3 segments
         stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
         top_segments = stats["segments"][:3]
 
-        if top_segments:
+        if top_segments and application_owner:
             for i, segment in enumerate(top_segments):
                 output_name = f"speaker_{speaker}_segment_{i}"
                 extract_audio_segment(output_name, segment["start"], segment["end"])
                 wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
-                matches = search_voiceprint(wav_path)
+                matches = search_voiceprint(wav_path, application_owner)
 
                 if matches:
                     matches_data = matches.get_json()

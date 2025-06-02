@@ -24,12 +24,13 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def azure_transcription(request):
     data = request.get_json()
     url = data.get('url')
+    application_owner = data.get('application_owner')
     try:
         content_url_list, sys_ids = azure_check_status(url)
         if content_url_list != "In Progress":
             output_list = []
             for i, content_url in enumerate(content_url_list[:-1]):
-                speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(content_url)
+                speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, application_owner=application_owner)
                 result_dict = {
                     "sys_id": sys_ids[i] if i < len(sys_ids) else None,
                     "source_url": source_url,
@@ -84,7 +85,7 @@ def azure_check_status(url: str):
 
 
 
-def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True):
+def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True, application_owner: str = None):
     response = requests.get(url)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
@@ -120,7 +121,7 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True)
             total_duration += duration
 
     # Match voiceprint, Calculate percentages and words per minute
-    if match_voiceprint:
+    if match_voiceprint and application_owner:
         for speaker, stats in speaker_stats.items():
             stats["percentage"] = (stats["total_duration"] / total_duration) * 100
             stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60
@@ -138,7 +139,7 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True)
 
                     # Perform voiceprint matching
                     wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
-                    matches = search_voiceprint(wav_path)
+                    matches = search_voiceprint(wav_path, application_owner)
 
                     # Get the best match
                     if matches:
@@ -256,6 +257,7 @@ def azure_extract_speaker_clip(request):
     data = request.get_json()
     mp4_url = data.get('source_url')
     transcription_url = data.get('azure_url')
+    application_owner = data.get('application_owner')
 
     if not mp4_url or not transcription_url:
         return {"error": "Both source_url and azure_url are required"}, 400
@@ -300,7 +302,7 @@ def azure_extract_speaker_clip(request):
             
         # Get the content URL for the matching sys_id
         content_url = content_url_list[content_url_index]
-        speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False)
+        speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False, application_owner=application_owner)
         
         # Download and convert the MP4 to WAV
         mp4_to_wav_file(mp4_url=mp4_url)
@@ -359,6 +361,7 @@ def azure_match_speaker_voiceprint(request):
         request: Flask request object containing:
             - source_url: URL of the meeting recording MP4 file
             - azure_url: URL of the Azure transcription results
+            - application_owner: Owner of the application for voiceprint matching
 
     Returns:
         JSON of each speaker's name
@@ -366,9 +369,10 @@ def azure_match_speaker_voiceprint(request):
     data = request.get_json()
     mp4_url = data.get('source_url')
     transcription_url = data.get('azure_url')
+    application_owner = data.get('application_owner')
 
-    if not mp4_url or not transcription_url:
-        return {"error": "Both source_url and azure_url are required"}, 400
+    if not mp4_url or not transcription_url or not application_owner:
+        return {"error": "source_url, azure_url, and application_owner are required"}, 400
 
     try:
         # Clean up upload folder first
@@ -411,7 +415,7 @@ def azure_match_speaker_voiceprint(request):
         # Get the content URL for the matching sys_id
         content_url = content_url_list[content_url_index]
         speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(
-            url=content_url, match_voiceprint=False)
+            url=content_url, match_voiceprint=True, application_owner=application_owner)
 
         # Download and convert the MP4 to WAV
         mp4_to_wav_file(mp4_url=mp4_url)
@@ -435,7 +439,7 @@ def azure_match_speaker_voiceprint(request):
 
                     # Perform voiceprint matching
                     wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
-                    matches = search_voiceprint(wav_path)
+                    matches = search_voiceprint(wav_path, application_owner)
 
                     # Get the best match
                     if matches:
