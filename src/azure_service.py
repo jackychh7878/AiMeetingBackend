@@ -107,7 +107,7 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
     total_duration = json_data.get("durationMilliseconds", 0) / 1000
 
     # Get the mp4 source and save the wav as src/uploads/temp_audio.wav
-    mp4_to_wav_file(mp4_url=json_data.get("source"))
+    meeting_wav_path = mp4_to_wav_file(mp4_url=json_data.get("source"))
 
     for phrase in json_data.get("recognizedPhrases", []):
         speaker = phrase.get("speaker")
@@ -145,7 +145,7 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
                 # Extract audio segments
                 for i, segment in enumerate(top_segments):
                     output_name = f"speaker_{speaker}_segment_{i}"
-                    extract_audio_segment(output_name, segment["start"], segment["end"])
+                    extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
 
                     # Perform voiceprint matching
                     wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
@@ -170,6 +170,10 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
                     os.remove(wav_path)
             else:
                 stats["identified_name"] = "unknown"
+
+        # Clean up the temporary WAV file
+        if os.path.exists(meeting_wav_path):
+            os.remove(meeting_wav_path)
 
     return speaker_text_pairs, speaker_stats, total_duration, source_url
 
@@ -315,7 +319,7 @@ def azure_extract_speaker_clip(request):
         speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False, application_owner=application_owner)
         
         # Download and convert the MP4 to WAV
-        mp4_to_wav_file(mp4_url=mp4_url)
+        meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
         
         # Create a directory to store the speaker clips
         clips_dir = os.path.join(UPLOAD_FOLDER, "speaker_clips")
@@ -330,7 +334,7 @@ def azure_extract_speaker_clip(request):
             # Extract each segment
             for i, segment in enumerate(top_segments):
                 output_name = f"speaker_{speaker}_segment_{i}"
-                extract_audio_segment(output_name, segment["start"], segment["end"])
+                extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
                 
                 # Move the file to the clips directory
                 src_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
@@ -355,6 +359,10 @@ def azure_extract_speaker_clip(request):
         
         # Clean up the local zip file
         os.remove(zip_path)
+
+        # Clean up the temporary WAV file
+        if os.path.exists(meeting_wav_path):
+            os.remove(meeting_wav_path)
         
         # Return the download URL
         return {"download_url": download_url}
@@ -428,7 +436,7 @@ def azure_match_speaker_voiceprint(request):
             url=content_url, match_voiceprint=True, application_owner=application_owner)
 
         # Download and convert the MP4 to WAV
-        mp4_to_wav_file(mp4_url=mp4_url)
+        meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
 
         # Create a directory to store the speaker clips
         clips_dir = os.path.join(UPLOAD_FOLDER, "speaker_clips")
@@ -445,7 +453,7 @@ def azure_match_speaker_voiceprint(request):
                 # Extract audio segments
                 for i, segment in enumerate(top_segments):
                     output_name = f"speaker_{speaker}_segment_{i}"
-                    extract_audio_segment(output_name, segment["start"], segment["end"])
+                    extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
 
                     # Perform voiceprint matching
                     wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
@@ -474,6 +482,10 @@ def azure_match_speaker_voiceprint(request):
         output_list = []
         for speaker, stats in speaker_stats.items():
             output_list.append(f'Speaker-{speaker}: {stats["identified_name"]}')
+
+        # Clean up the temporary WAV file
+        if os.path.exists(meeting_wav_path):
+            os.remove(meeting_wav_path)
 
         # Return the speaker voiceprint match
         return {"speaker": '\n'.join(output_list)}

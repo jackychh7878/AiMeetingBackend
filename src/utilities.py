@@ -6,6 +6,7 @@ from pydantic import BaseModel
 import base64
 from pydub import AudioSegment
 from collections import defaultdict
+import uuid
 
 
 # Load environment variables
@@ -60,8 +61,7 @@ def mp4_to_base64(mp4_url: str):
         return None
 
 
-
-def extract_audio_segment(output_name: str, start_time: float, end_time: float) -> None:
+def extract_audio_segment(output_name: str, start_time: float, end_time: float, input_file: str, clean_up_after: bool = False) -> None:
     """
     Extracts a segment from an audio file and saves it as a new file.
 
@@ -69,28 +69,36 @@ def extract_audio_segment(output_name: str, start_time: float, end_time: float) 
     - output_name (str): The name of the output audio file
     - start_time (float): Start time in seconds for the segment to extract.
     - end_time (float): End time in seconds for the segment to extract.
+    - input_file (str): Path to the input audio file
 
     Returns:
     - None
     """
-
-    input_file = os.path.join(UPLOAD_FOLDER, "temp_audio.wav")
     output_file = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
 
+    try:
+        # Load the audio file
+        audio = AudioSegment.from_file(input_file)
 
-    # Load the audio file
-    audio = AudioSegment.from_file(input_file)
+        # Convert start and end times to milliseconds
+        start_ms = start_time * 1000
+        end_ms = end_time * 1000
 
-    # Convert start and end times to milliseconds
-    start_ms = start_time * 1000
-    end_ms = end_time * 1000
+        # Extract the desired segment
+        extracted_segment = audio[start_ms:end_ms]
 
-    # Extract the desired segment
-    extracted_segment = audio[start_ms:end_ms]
-
-    # Export the extracted segment to a new file
-    extracted_segment.export(output_file, format="wav")
-
+        # Export the extracted segment to a new file
+        extracted_segment.export(output_file, format="wav")
+        
+        # Clean up the input file after processing
+        if clean_up_after and os.path.exists(input_file):
+            os.remove(input_file)
+            
+    except Exception as e:
+        # Clean up any temporary files in case of error
+        if os.path.exists(output_file):
+            os.remove(output_file)
+        raise e
 
 
 def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
@@ -99,8 +107,10 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
     Returns the local file path.
     """
     try:
-        mp4_path = os.path.join(save_dir, "temp_audio.mp4")
-        wav_path = os.path.join(save_dir, "temp_audio.wav")
+        # Generate unique file names using UUID
+        unique_id = str(uuid.uuid4())
+        mp4_path = os.path.join(save_dir, f"temp_audio_{unique_id}.mp4")
+        wav_path = os.path.join(save_dir, f"temp_audio_{unique_id}.wav")
 
         # Step 1: Download file and check content type
         response = requests.get(mp4_url, stream=True)
@@ -136,6 +146,10 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
         return wav_path  # Return local WAV file path
 
     except Exception as e:
+        # Clean up any temporary files in case of error
+        for path in [mp4_path, wav_path]:
+            if os.path.exists(path):
+                os.remove(path)
         print(f"Error: {e}")
         return None
 

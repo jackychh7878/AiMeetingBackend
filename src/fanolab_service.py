@@ -67,13 +67,13 @@ def fanolab_submit_transcription(request):
         return {"error": "application_owner is required"}
 
     # Convert MP4 to WAV
-    wav_path = mp4_to_wav_file(source_url)
-    if not wav_path:
+    meeting_wav_path = mp4_to_wav_file(source_url)
+    if not meeting_wav_path:
         return {"error": "Failed to process audio"}
 
     try:
         # Get duration from WAV file
-        audio = AudioSegment.from_wav(wav_path)
+        audio = AudioSegment.from_wav(meeting_wav_path)
         duration_seconds = len(audio) / 1000  # Convert milliseconds to seconds
         duration_hours = duration_seconds / 3600  # Convert to hours
 
@@ -84,7 +84,7 @@ def fanolab_submit_transcription(request):
             return {"error": message}, 403
 
         # Upload audio file to Azure Blob Storage
-        wav_url = azure_upload_file_and_get_sas_url(file_path=wav_path, blob_name=AZURE_BLOB_NAME)
+        wav_url = azure_upload_file_and_get_sas_url(file_path=meeting_wav_path, blob_name=AZURE_BLOB_NAME)
         if not wav_url:
             return {"error": "Failed to upload audio"}, 500
 
@@ -113,14 +113,17 @@ def fanolab_submit_transcription(request):
             # Wait for 5 seconds before deleting the blob
             time.sleep(5)
             azure_delete_blob(blob_name=AZURE_BLOB_NAME)
+            # Clean up the temporary WAV file
+            if os.path.exists(meeting_wav_path):
+                os.remove(meeting_wav_path)
 
         return response.json()
     except Exception as e:
         return {"error": str(e)}, 500
     finally:
         # Clean up the WAV file
-        if os.path.exists(wav_path):
-            os.remove(wav_path)
+        if os.path.exists(meeting_wav_path):
+            os.remove(meeting_wav_path)
 
 
 def fanolab_transcription(request):
@@ -169,7 +172,7 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, appl
     total_duration = 0
 
     # If a source URL exists, perform the audio conversion as in the Azure version
-    mp4_to_wav_file(mp4_url=source_url)
+    meeting_wav_path = mp4_to_wav_file(mp4_url=source_url)
 
     # Process each result from Fanolab's response
     results = json_data.get("response", {}).get("results", [])
@@ -244,7 +247,7 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, appl
         if top_segments and application_owner:
             for i, segment in enumerate(top_segments):
                 output_name = f"speaker_{speaker}_segment_{i}"
-                extract_audio_segment(output_name, segment["start"], segment["end"])
+                extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
                 wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
                 matches = search_voiceprint(wav_path, application_owner)
 
@@ -265,6 +268,10 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, appl
                 os.remove(wav_path)
         else:
             stats["identified_name"] = "unknown"
+
+    # Clean up the temporary WAV file
+    if os.path.exists(meeting_wav_path):
+        os.remove(meeting_wav_path)
 
     return speaker_text_pairs, speaker_stats, total_duration, source_url
 
