@@ -14,7 +14,7 @@ from src.app_owner_control_service import check_quota
 load_dotenv()
 
 headers = {
-    "Ocp-Apim-Subscription-Key": os.getenv("AZURE_API_KEY"),
+    "Ocp-Apim-Subscription-Key": os.getenv("AZURE_STT_API_KEY"),
     "Content-Type": "application/json"
 }
 
