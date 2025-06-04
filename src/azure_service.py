@@ -9,6 +9,7 @@ from src.voiceprint_library_service import search_voiceprint
 from datetime import datetime, timedelta
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from src.app_owner_control_service import check_quota
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -277,96 +278,95 @@ def azure_extract_speaker_clip(request):
         return {"error": "Both source_url and azure_url are required"}, 400
         
     try:
-        # Clean up upload folder first
-        for filename in os.listdir(UPLOAD_FOLDER):
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print(f'Failed to delete {file_path}. Reason: {e}')
+        # Generate unique identifier for this request
+        unique_id = str(uuid.uuid4())
         
-        # First get the transcription results
-        content_url_list, sys_ids = azure_check_status(transcription_url)
-        if content_url_list == "In Progress":
-            return {"error": "Transcription is still in progress"}, 400
-            
-        # Find the index of the matching sys_id
+        # Create unique directory for this request's files
+        request_dir = os.path.join(UPLOAD_FOLDER, f"request_{unique_id}")
+        os.makedirs(request_dir, exist_ok=True)
+        
         try:
-            target_content_url = ''
-            mp4_sig = mp4_url.split("sig=")[1]
-            for content_url in content_url_list:
-                response = requests.get(content_url)
-                response.raise_for_status()  # Raises an error for bad responses
-                json_data = response.json()
-                url = json_data.get('source')
-                content_url_sig = url.split("sig=")[1]
-                if mp4_sig == content_url_sig:
-                    target_content_url = content_url
-                    break
-
-            if target_content_url == '':
-                return {"error": "target content url not found"}, 400
-
-            content_url_index = content_url_list.index(target_content_url)
-        except ValueError:
-            return {"error": "target content url not found"}, 400
-            
-        # Get the content URL for the matching sys_id
-        content_url = content_url_list[content_url_index]
-        speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False, application_owner=application_owner)
-        
-        # Download and convert the MP4 to WAV
-        meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
-        
-        # Create a directory to store the speaker clips
-        clips_dir = os.path.join(UPLOAD_FOLDER, "speaker_clips")
-        os.makedirs(clips_dir, exist_ok=True)
-        
-        # Extract segments for each speaker
-        for speaker, stats in speaker_stats.items():
-            # Sort segments by duration and get top 3
-            stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
-            top_segments = stats["segments"][:3]  # Get up to 3 longest segments
-            
-            # Extract each segment
-            for i, segment in enumerate(top_segments):
-                output_name = f"speaker_{speaker}_segment_{i}"
-                extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
+            # First get the transcription results
+            content_url_list, sys_ids = azure_check_status(transcription_url)
+            if content_url_list == "In Progress":
+                return {"error": "Transcription is still in progress"}, 400
                 
-                # Move the file to the clips directory
-                src_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
-                dst_path = os.path.join(clips_dir, f"{output_name}.wav")
-                os.rename(src_path, dst_path)
-        
-        # Create a zip file of all clips
-        zip_path = os.path.join(UPLOAD_FOLDER, "speaker_clips.zip")
-        with zipfile.ZipFile(zip_path, 'w') as zipf:
-            for root, dirs, files in os.walk(clips_dir):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, clips_dir)
-                    zipf.write(file_path, arcname)
-        
-        # Clean up the clips directory
-        shutil.rmtree(clips_dir)
-        
-        # Upload the zip file to Azure Blob Storage and get a SAS URL
-        blob_name = "speaker_clips.zip"  # Use a consistent name to overwrite existing files
-        download_url = azure_upload_file_and_get_sas_url(zip_path, blob_name)
-        
-        # Clean up the local zip file
-        os.remove(zip_path)
+            # Find the index of the matching sys_id
+            try:
+                target_content_url = ''
+                mp4_sig = mp4_url.split("sig=")[1]
+                for content_url in content_url_list:
+                    response = requests.get(content_url)
+                    response.raise_for_status()  # Raises an error for bad responses
+                    json_data = response.json()
+                    url = json_data.get('source')
+                    content_url_sig = url.split("sig=")[1]
+                    if mp4_sig == content_url_sig:
+                        target_content_url = content_url
+                        break
 
-        # Clean up the temporary WAV file
-        if os.path.exists(meeting_wav_path):
-            os.remove(meeting_wav_path)
-        
-        # Return the download URL
-        return {"download_url": download_url}
-        
+                if target_content_url == '':
+                    return {"error": "target content url not found"}, 400
+
+                content_url_index = content_url_list.index(target_content_url)
+            except ValueError:
+                return {"error": "target content url not found"}, 400
+                
+            # Get the content URL for the matching sys_id
+            content_url = content_url_list[content_url_index]
+            speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False, application_owner=application_owner)
+            
+            # Download and convert the MP4 to WAV
+            meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
+            
+            # Create a directory to store the speaker clips
+            clips_dir = os.path.join(request_dir, "speaker_clips")
+            os.makedirs(clips_dir, exist_ok=True)
+            
+            # Extract segments for each speaker
+            for speaker, stats in speaker_stats.items():
+                # Sort segments by duration and get top 3
+                stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
+                top_segments = stats["segments"][:3]  # Get up to 3 longest segments
+                
+                # Extract each segment
+                for i, segment in enumerate(top_segments):
+                    output_name = f"speaker_{speaker}_segment_{i}"
+                    extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
+                    
+                    # Move the file to the clips directory
+                    src_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
+                    dst_path = os.path.join(clips_dir, f"{output_name}.wav")
+                    os.rename(src_path, dst_path)
+            
+            # Create a zip file of all clips with unique name
+            zip_filename = f"speaker_clips_{unique_id}.zip"
+            zip_path = os.path.join(request_dir, zip_filename)
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for root, dirs, files in os.walk(clips_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, clips_dir)
+                        zipf.write(file_path, arcname)
+
+            # Clean up the clips directory
+            shutil.rmtree(clips_dir)
+
+            # Upload the zip file to Azure Blob Storage and get a SAS URL
+            blob_name = f"speaker_clips_{unique_id}.zip"  # Use unique name for blob
+            download_url = azure_upload_file_and_get_sas_url(zip_path, blob_name)
+
+            # Clean up all temporary files and directories
+            if os.path.exists(meeting_wav_path):
+                os.remove(meeting_wav_path)
+            if os.path.exists(request_dir):
+                shutil.rmtree(request_dir)
+
+            return {"download_url": download_url}
+
+        except Exception as e:
+            return {"error": str(e)}, 500
+
     except Exception as e:
         return {"error": str(e)}, 500
 
