@@ -172,9 +172,9 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
             else:
                 stats["identified_name"] = "unknown"
 
-        # Clean up the temporary WAV file
-        if os.path.exists(meeting_wav_path):
-            os.remove(meeting_wav_path)
+    # Clean up the temporary WAV file
+    if os.path.exists(meeting_wav_path):
+        os.remove(meeting_wav_path)
 
     return speaker_text_pairs, speaker_stats, total_duration, source_url
 
@@ -272,7 +272,6 @@ def azure_extract_speaker_clip(request):
     data = request.get_json()
     mp4_url = data.get('source_url')
     transcription_url = data.get('azure_url')
-    application_owner = data.get('application_owner')
 
     if not mp4_url or not transcription_url:
         return {"error": "Both source_url and azure_url are required"}, 400
@@ -314,7 +313,7 @@ def azure_extract_speaker_clip(request):
                 
             # Get the content URL for the matching sys_id
             content_url = content_url_list[content_url_index]
-            speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False, application_owner=application_owner)
+            speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=False)
             
             # Download and convert the MP4 to WAV
             meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
