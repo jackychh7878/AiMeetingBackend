@@ -9,6 +9,9 @@ from src.azure_service import azure_upload_file_and_get_sas_url, azure_delete_bl
 from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
 from src.app_owner_control_service import check_quota
+import uuid
+import zipfile
+import shutil
 
 # Load environment variables
 load_dotenv()
@@ -176,7 +179,7 @@ def fanolab_transcription(request):
         }, 500
 
 
-def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, application_owner: str = None):
+def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, match_voiceprint: bool = True, application_owner: str = None):
     url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
     response = requests.get(url, headers=headers)
     response.raise_for_status()  # Raises an error for bad responses
@@ -252,42 +255,136 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, appl
             total_duration += duration
 
     # Calculate percentages and words per minute; also perform voiceprint matching
-    for speaker, stats in speaker_stats.items():
-        stats["percentage"] = (stats["total_duration"] / total_duration) * 100 if total_duration > 0 else 0
-        stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60 if stats["total_duration"] > 0 else 0
 
-        # Sort segments by duration (longest first) and get top 3 segments
-        stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
-        top_segments = stats["segments"][:3]
+    # Match voiceprint, Calculate percentages and words per minute
+    if match_voiceprint and application_owner:
+        for speaker, stats in speaker_stats.items():
+            stats["percentage"] = (stats["total_duration"] / total_duration) * 100 if total_duration > 0 else 0
+            stats["words_per_minute"] = (stats["total_words"] / stats["total_duration"]) * 60 if stats["total_duration"] > 0 else 0
 
-        if top_segments and application_owner:
-            for i, segment in enumerate(top_segments):
-                output_name = f"speaker_{speaker}_segment_{i}"
-                extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
-                wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
-                matches = search_voiceprint(wav_path, application_owner)
+            # Sort segments by duration (longest first) and get top 3 segments
+            stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
+            top_segments = stats["segments"][:3]
 
-                if matches:
-                    matches_data = matches.get_json()
-                    if matches_data and len(matches_data) > 0:
-                        best_match = matches_data[0]
-                        if best_match.get("similarity", 0) >= 0.8:  # Confidence threshold
-                            stats["identified_name"] = best_match.get("name", "unknown")
+            if top_segments:
+                for i, segment in enumerate(top_segments):
+                    output_name = f"speaker_{speaker}_segment_{i}"
+                    extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
+                    wav_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
+                    matches = search_voiceprint(wav_path, application_owner)
+
+                    if matches:
+                        matches_data = matches.get_json()
+                        if matches_data and len(matches_data) > 0:
+                            best_match = matches_data[0]
+                            if best_match.get("similarity", 0) >= 0.8:  # Confidence threshold
+                                stats["identified_name"] = best_match.get("name", "unknown")
+                            else:
+                                stats["identified_name"] = "unknown"
                         else:
                             stats["identified_name"] = "unknown"
                     else:
                         stats["identified_name"] = "unknown"
-                else:
-                    stats["identified_name"] = "unknown"
 
-                # Clean up the temporary WAV file
-                os.remove(wav_path)
-        else:
-            stats["identified_name"] = "unknown"
+                    # Clean up the temporary WAV file
+                    os.remove(wav_path)
+            else:
+                stats["identified_name"] = "unknown"
 
     # Clean up the temporary WAV file
     if os.path.exists(meeting_wav_path):
         os.remove(meeting_wav_path)
 
     return speaker_text_pairs, speaker_stats, total_duration, source_url
+
+
+def fanolab_extract_speaker_clip(request):
+    """
+    Extracts audio segments for each speaker from a meeting recording using Fanolab transcription.
+    
+    Args:
+        request: Flask request object containing:
+            - source_url: URL of the meeting recording MP4 file
+            - fanolab_id: ID of the Fanolab transcription operation
+            
+    Returns:
+        A zip file containing audio segments for each speaker
+    """
+    data = request.get_json()
+    mp4_url = data.get('source_url')
+    fanolab_id = data.get('fanolab_id')
+
+    if not mp4_url or not fanolab_id:
+        return {"error": "Both source_url and fanolab_id are required"}, 400
+        
+    try:
+        # Generate unique identifier for this request
+        unique_id = str(uuid.uuid4())
+        
+        # Create unique directory for this request's files
+        request_dir = os.path.join(UPLOAD_FOLDER, f"request_{unique_id}")
+        os.makedirs(request_dir, exist_ok=True)
+        
+        try:
+            # Get the transcription results
+            speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(
+                source_url=mp4_url,
+                fanolab_id=fanolab_id,
+                match_voiceprint = False,
+                application_owner=None  # We don't need voiceprint matching for this operation
+            )
+            
+            # Download and convert the MP4 to WAV
+            meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
+            
+            # Create a directory to store the speaker clips
+            clips_dir = os.path.join(request_dir, "speaker_clips")
+            os.makedirs(clips_dir, exist_ok=True)
+            
+            # Extract segments for each speaker
+            for speaker, stats in speaker_stats.items():
+                # Sort segments by duration and get top 3
+                stats["segments"].sort(key=lambda x: x["duration"], reverse=True)
+                top_segments = stats["segments"][:3]  # Get up to 3 longest segments
+                
+                # Extract each segment
+                for i, segment in enumerate(top_segments):
+                    output_name = f"speaker_{speaker}_segment_{i}"
+                    extract_audio_segment(output_name=output_name, start_time=segment["start"], end_time=segment["end"], input_file=meeting_wav_path, clean_up_after=False)
+                    
+                    # Move the file to the clips directory
+                    src_path = os.path.join(UPLOAD_FOLDER, f"{output_name}.wav")
+                    dst_path = os.path.join(clips_dir, f"{output_name}.wav")
+                    os.rename(src_path, dst_path)
+            
+            # Create a zip file of all clips with unique name
+            zip_filename = f"speaker_clips_{unique_id}.zip"
+            zip_path = os.path.join(request_dir, zip_filename)
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for root, dirs, files in os.walk(clips_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, clips_dir)
+                        zipf.write(file_path, arcname)
+
+            # Clean up the clips directory
+            shutil.rmtree(clips_dir)
+
+            # Upload the zip file to Azure Blob Storage and get a SAS URL
+            blob_name = f"speaker_clips_{unique_id}.zip"  # Use unique name for blob
+            download_url = azure_upload_file_and_get_sas_url(zip_path, blob_name)
+
+            # Clean up all temporary files and directories
+            if os.path.exists(meeting_wav_path):
+                os.remove(meeting_wav_path)
+            if os.path.exists(request_dir):
+                shutil.rmtree(request_dir)
+
+            return {"download_url": download_url}
+
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+    except Exception as e:
+        return {"error": str(e)}, 500
 
