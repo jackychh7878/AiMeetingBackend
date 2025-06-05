@@ -148,16 +148,32 @@ def fanolab_transcription(request):
             speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(source_url=source_url, fanolab_id=fanolab_id, application_owner=application_owner)
                 
             result_dict = {
+                "status": "success",
+                "message": "Transcription completed successfully",
                 "sys_id": sys_id,
                 "source_url": source_url,
                 "speaker_stats": speaker_stats,
                 "total_duration": total_duration,
-                "transcriptions": speaker_text_pairs}
+                "transcriptions": speaker_text_pairs
+            }
             return result_dict
         else:
-            return {"transcriptions": "Transcription in progress"}, 200
+            # Check if there's an error in the response
+            if "error" in json_data:
+                return {
+                    "status": "failed",
+                    "message": json_data["error"].get("message", "Unknown error occurred"),
+                }, 400
+            else:
+                return {
+                    "status": "in_progress",
+                    "message": "Transcription is still in progress"
+                }, 200
     except Exception as e:
-        return {"error": str(e)}, 500
+        return {
+            "status": "error",
+            "message": str(e),
+        }, 500
 
 
 def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, application_owner: str = None):
