@@ -6,7 +6,7 @@ from pydub import AudioSegment
 from openai import AsyncAzureOpenAI
 from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
 from src.azure_service import azure_transcription, azure_extract_speaker_clip, azure_match_speaker_voiceprint
-from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription, fanolab_extract_speaker_clip
+from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription, fanolab_extract_speaker_clip, fanolab_match_speaker_voiceprint
 from src.tflow_service import get_meeting_minutes, get_project_list, get_project_memory, get_dashboard
 
 # Load environment variables
@@ -42,6 +42,14 @@ def fanolab_transcription_api():
 def fanolab_extract_speaker_clip_api():
     try:
         result = fanolab_extract_speaker_clip(request)
+        return result
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/fanolab_match_speaker_voiceprint', methods=['POST'])
+def fanolab_match_speaker_voiceprint_api():
+    try:
+        result = fanolab_match_speaker_voiceprint(request)
         return result
     except Exception as e:
         return jsonify({"error": str(e)})

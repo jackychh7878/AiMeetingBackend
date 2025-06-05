@@ -388,3 +388,56 @@ def fanolab_extract_speaker_clip(request):
     except Exception as e:
         return {"error": str(e)}, 500
 
+
+def fanolab_match_speaker_voiceprint(request):
+    """
+    Match each speaker from existing voiceprint library using Fanolab transcription.
+
+    Args:
+        request: Flask request object containing:
+            - source_url: URL of the meeting recording MP4 file
+            - fanolab_id: ID of the Fanolab transcription operation
+            - application_owner: Owner of the application for voiceprint matching
+
+    Returns:
+        JSON of each speaker's name
+    """
+    data = request.get_json()
+    mp4_url = data.get('source_url')
+    fanolab_id = data.get('fanolab_id')
+    application_owner = data.get('application_owner')
+
+    if not mp4_url or not fanolab_id or not application_owner:
+        return {"error": "source_url, fanolab_id, and application_owner are required"}, 400
+
+    try:
+        # Clean up upload folder first
+        for filename in os.listdir(UPLOAD_FOLDER):
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+
+        # Get the transcription results with voiceprint matching enabled
+        speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(
+            source_url=mp4_url,
+            fanolab_id=fanolab_id,
+            match_voiceprint=True,
+            application_owner=application_owner
+        )
+
+        # Create output list of speaker matches
+        output_list = []
+        for speaker, stats in speaker_stats.items():
+            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]}')
+
+        # Return the speaker voiceprint match
+        return {"speaker": '\n'.join(output_list)}
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
