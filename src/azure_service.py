@@ -27,6 +27,8 @@ def azure_transcription(request):
     data = request.get_json()
     url = data.get('url')
     application_owner = data.get('application_owner')
+    confidence_threshold = data.get('confidence_threshold')
+
     try:
         content_url_list, sys_ids = azure_check_status(url)
         if content_url_list == "In Progress":
@@ -35,7 +37,7 @@ def azure_transcription(request):
         output_list = []
         total_duration_hours = 0
         for i, content_url in enumerate(content_url_list[:-1]):
-            speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, application_owner=application_owner)
+            speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(url=content_url, match_voiceprint=True, application_owner=application_owner, confidence_threshold=confidence_threshold)
             result_dict = {
                 "sys_id": sys_ids[i] if i < len(sys_ids) else None,
                 "source_url": source_url,
@@ -95,7 +97,7 @@ def azure_check_status(url: str):
 
 
 
-def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True, application_owner: str = None):
+def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True, application_owner: str = None, confidence_threshold: float = 0.8):
     response = requests.get(url)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
@@ -158,7 +160,7 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
                         matches_data = matches.get_json()
                         if matches_data and len(matches_data) > 0:
                             best_match = matches_data[0]
-                            if best_match["similarity"] >= 0.8:  # Confidence threshold
+                            if best_match["similarity"] >= confidence_threshold:  # Confidence threshold
                                 stats["identified_name"] = best_match["name"]
                             else:
                                 stats["identified_name"] = "unknown"
@@ -387,6 +389,7 @@ def azure_match_speaker_voiceprint(request):
     mp4_url = data.get('source_url')
     transcription_url = data.get('azure_url')
     application_owner = data.get('application_owner')
+    confidence_threshold = data.get('confidence_threshold')
 
     if not mp4_url or not transcription_url or not application_owner:
         return {"error": "source_url, azure_url, and application_owner are required"}, 400
@@ -432,7 +435,7 @@ def azure_match_speaker_voiceprint(request):
         # Get the content URL for the matching sys_id
         content_url = content_url_list[content_url_index]
         speaker_text_pairs, speaker_stats, total_duration, source_url = azure_fetch_completed_transcription(
-            url=content_url, match_voiceprint=True, application_owner=application_owner)
+            url=content_url, match_voiceprint=True, application_owner=application_owner, confidence_threshold=confidence_threshold)
 
         # Download and convert the MP4 to WAV
         meeting_wav_path = mp4_to_wav_file(mp4_url=mp4_url)
@@ -464,7 +467,7 @@ def azure_match_speaker_voiceprint(request):
                         matches_data = matches.get_json()
                         if matches_data and len(matches_data) > 0:
                             best_match = matches_data[0]
-                            if best_match["similarity"] >= 0.8:  # Confidence threshold
+                            if best_match["similarity"] >= confidence_threshold:  # Confidence threshold
                                 stats["identified_name"] = best_match["name"]
                             else:
                                 stats["identified_name"] = "unknown"

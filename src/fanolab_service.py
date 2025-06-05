@@ -135,6 +135,7 @@ def fanolab_transcription(request):
     source_url = data.get('source_url')
     fanolab_id = data.get('fanolab_id')
     application_owner = data.get('application_owner')
+    confidence_threshold = data.get('confidence_threshold')
 
     if not application_owner:
         return {"error": "application_owner is required"}, 400
@@ -148,7 +149,7 @@ def fanolab_transcription(request):
         current_status = json_data.get('done')
 
         if current_status is True:
-            speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(source_url=source_url, fanolab_id=fanolab_id, application_owner=application_owner)
+            speaker_text_pairs, speaker_stats, total_duration, source_url = fanolab_fetch_completed_transcription(source_url=source_url, fanolab_id=fanolab_id, application_owner=application_owner, confidence_threshold=confidence_threshold)
                 
             result_dict = {
                 "status": "success",
@@ -179,7 +180,7 @@ def fanolab_transcription(request):
         }, 500
 
 
-def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, match_voiceprint: bool = True, application_owner: str = None):
+def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, match_voiceprint: bool = True, application_owner: str = None, confidence_threshold: float = 0.8):
     url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
     response = requests.get(url, headers=headers)
     response.raise_for_status()  # Raises an error for bad responses
@@ -277,7 +278,7 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, matc
                         matches_data = matches.get_json()
                         if matches_data and len(matches_data) > 0:
                             best_match = matches_data[0]
-                            if best_match.get("similarity", 0) >= 0.8:  # Confidence threshold
+                            if best_match.get("similarity", 0) >= confidence_threshold:  # Confidence threshold
                                 stats["identified_name"] = best_match.get("name", "unknown")
                             else:
                                 stats["identified_name"] = "unknown"
@@ -406,6 +407,7 @@ def fanolab_match_speaker_voiceprint(request):
     mp4_url = data.get('source_url')
     fanolab_id = data.get('fanolab_id')
     application_owner = data.get('application_owner')
+    confidence_threshold = data.get('confidence_threshold')
 
     if not mp4_url or not fanolab_id or not application_owner:
         return {"error": "source_url, fanolab_id, and application_owner are required"}, 400
@@ -427,7 +429,8 @@ def fanolab_match_speaker_voiceprint(request):
             source_url=mp4_url,
             fanolab_id=fanolab_id,
             match_voiceprint=True,
-            application_owner=application_owner
+            application_owner=application_owner,
+            confidence_threshold=confidence_threshold
         )
 
         # Create output list of speaker matches
