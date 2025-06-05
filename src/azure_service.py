@@ -162,6 +162,7 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
                             best_match = matches_data[0]
                             if best_match["similarity"] >= confidence_threshold:  # Confidence threshold
                                 stats["identified_name"] = best_match["name"]
+                                stats["confidence"] = best_match["similarity"]
                             else:
                                 stats["identified_name"] = "unknown"
                         else:
@@ -468,7 +469,8 @@ def azure_match_speaker_voiceprint(request):
                         if matches_data and len(matches_data) > 0:
                             best_match = matches_data[0]
                             if best_match["similarity"] >= confidence_threshold:  # Confidence threshold
-                                stats["identified_name"] = best_match["name"]
+                                stats["identified_name"] = best_match.get("name", "unknown")
+                                stats["confidence"] = best_match.get("similarity")
                             else:
                                 stats["identified_name"] = "unknown"
                         else:
@@ -483,7 +485,7 @@ def azure_match_speaker_voiceprint(request):
 
         output_list = []
         for speaker, stats in speaker_stats.items():
-            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]}')
+            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]} ({stats.get("confidence", 0)})')
 
         # Clean up the temporary WAV file
         if os.path.exists(meeting_wav_path):

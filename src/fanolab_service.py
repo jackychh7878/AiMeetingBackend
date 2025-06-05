@@ -280,6 +280,7 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, matc
                             best_match = matches_data[0]
                             if best_match.get("similarity", 0) >= confidence_threshold:  # Confidence threshold
                                 stats["identified_name"] = best_match.get("name", "unknown")
+                                stats["confidence"] = best_match.get("similarity")
                             else:
                                 stats["identified_name"] = "unknown"
                         else:
@@ -436,7 +437,7 @@ def fanolab_match_speaker_voiceprint(request):
         # Create output list of speaker matches
         output_list = []
         for speaker, stats in speaker_stats.items():
-            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]}')
+            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]} ({stats.get("confidence", 0)})')
 
         # Return the speaker voiceprint match
         return {"speaker": '\n'.join(output_list)}
