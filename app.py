@@ -60,6 +60,10 @@ UPLOAD_TEMPLATE = """
         button:hover {
             background-color: #0056b3;
         }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
         #result {
             margin-top: 20px;
             padding: 10px;
@@ -89,6 +93,25 @@ UPLOAD_TEMPLATE = """
             border-radius: 4px;
             word-break: break-all;
         }
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .upload-status {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -98,8 +121,10 @@ UPLOAD_TEMPLATE = """
         <div class="upload-section">
             <form id="uploadForm" enctype="multipart/form-data">
                 <input type="file" id="fileInput" accept=".mp4,.wav" required>
-                <button type="submit">Upload File</button>
+                <button type="submit" id="uploadButton">Upload File</button>
             </form>
+            <div class="spinner" id="spinner"></div>
+            <div class="upload-status" id="uploadStatus"></div>
         </div>
 
         <div id="result"></div>
@@ -115,7 +140,6 @@ UPLOAD_TEMPLATE = """
                 resultDiv.innerHTML = `
                     <div>Paste the following url to "Meeting Url (only support wav or mp4)" field:</div>
                     <div class="url-container">${sasUrl}</div>
-                    <button class="copy-button" onclick="copyToClipboard('${sasUrl}')">Click to Copy URL</button>
                 `;
             }
             
@@ -137,6 +161,25 @@ UPLOAD_TEMPLATE = """
             }
         }
 
+        function setLoading(isLoading) {
+            const spinner = document.getElementById('spinner');
+            const uploadButton = document.getElementById('uploadButton');
+            const uploadStatus = document.getElementById('uploadStatus');
+            const fileInput = document.getElementById('fileInput');
+            
+            if (isLoading) {
+                spinner.style.display = 'block';
+                uploadButton.disabled = true;
+                fileInput.disabled = true;
+                uploadStatus.textContent = 'Uploading...';
+            } else {
+                spinner.style.display = 'none';
+                uploadButton.disabled = false;
+                fileInput.disabled = false;
+                uploadStatus.textContent = '';
+            }
+        }
+
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const fileInput = document.getElementById('fileInput');
@@ -154,6 +197,7 @@ UPLOAD_TEMPLATE = """
                 return;
             }
 
+            setLoading(true);
             const formData = new FormData();
             formData.append('file', file);
 
@@ -171,6 +215,8 @@ UPLOAD_TEMPLATE = """
                 }
             } catch (error) {
                 showResult('Error uploading file', true);
+            } finally {
+                setLoading(false);
             }
         });
     </script>
