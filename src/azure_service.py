@@ -576,9 +576,3 @@ def azure_upload_media_and_get_sas_url(request):
                 
     except Exception as e:
         return {"error": str(e)}, 500
-
-# if __name__ == '__main__':
-#     response = upload_file_and_get_sas_url(file_path='./uploads/temp_audio.wav', blob_name='temp_audio.wav')
-#     print(response)
-#     response = delete_blob('temp_audio')
-#     print(response)
