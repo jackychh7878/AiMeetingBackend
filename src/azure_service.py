@@ -183,10 +183,11 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
 
 
 
-def azure_upload_file_and_get_sas_url(file_path, blob_name):
+def azure_upload_file_and_get_sas_url(file_path, blob_name, expiry_date: timedelta = timedelta(hours=1)):
     """
     Uploads a file to Azure Blob Storage and generates a temporary SAS URL.
 
+    :param expiry_date: Expiry date for the SAS url
     :param file_path: Path to the local file to be uploaded.
     :param blob_name: Name for the blob in Azure Storage.
 
@@ -209,7 +210,7 @@ def azure_upload_file_and_get_sas_url(file_path, blob_name):
             blob_client = container_client.upload_blob(name=blob_name, data=data, overwrite=True)
 
         # Set the SAS token expiration time (e.g., 1 hour from now)
-        sas_expiry = datetime.now() + timedelta(hours=1)
+        sas_expiry = datetime.now() + expiry_date
 
         # Generate the SAS token with read permissions
         sas_token = generate_blob_sas(
@@ -494,6 +495,85 @@ def azure_match_speaker_voiceprint(request):
         # Return the speaker voiceprint match
         return {"speaker": '\n'.join(output_list)}
 
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+def azure_upload_media_and_get_sas_url(request):
+    """
+    Uploads a media file (MP4 or WAV) to Azure Blob Storage and generates a SAS URL with 1-year expiry.
+    Automatically detects file type from URL and content.
+    
+    Args:
+        request: Flask request object containing:
+            - data: List containing a single URL of the media file to be downloaded and uploaded
+            
+    Returns:
+        Dictionary containing the SAS URL for the uploaded blob
+    """
+    try:
+        data = request.get_json()
+        url_list = data.get('data')
+        
+        if not url_list or not isinstance(url_list, list):
+            return {"error": "data must be a list containing a single URL"}, 400
+            
+        if len(url_list) != 1:
+            return {"error": "data must contain exactly one URL"}, 400
+            
+        file_url = url_list[0]
+        if not file_url or not isinstance(file_url, str):
+            return {"error": "URL must be a valid string"}, 400
+            
+        # Generate unique filename
+        unique_id = str(uuid.uuid4())
+        temp_filepath = os.path.join(UPLOAD_FOLDER, f"temp_{unique_id}")
+        
+        try:
+            # Download the file
+            response = requests.get(file_url, stream=True)
+            response.raise_for_status()
+            
+            # Get content type from response headers
+            content_type = response.headers.get('content-type', '').lower()
+            
+            # Determine file type from content type or URL
+            file_type = None
+            if 'video/mp4' in content_type or file_url.lower().endswith('.mp4'):
+                file_type = 'mp4'
+            elif 'audio/wav' in content_type or file_url.lower().endswith('.wav'):
+                file_type = 'wav'
+            
+            if not file_type:
+                return {"error": "Unsupported file type. Only MP4 and WAV files are supported."}, 400
+            
+            # Save the file temporarily with detected extension
+            temp_filepath = f"{temp_filepath}.{file_type}"
+            with open(temp_filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            
+            # Generate blob name
+            blob_name = f"media/{unique_id}.{file_type}"
+            
+            # Upload to Azure with 1-year expiry
+            sas_url = azure_upload_file_and_get_sas_url(
+                file_path=temp_filepath,
+                blob_name=blob_name,
+                expiry_date=timedelta(days=365)
+            )
+            
+            if not sas_url:
+                return {"error": "Failed to upload file to Azure"}, 500
+                
+            return {"sas_url": sas_url}
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+                
     except Exception as e:
         return {"error": str(e)}, 500
 

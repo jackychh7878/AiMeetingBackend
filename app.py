@@ -5,7 +5,7 @@ import requests
 from pydub import AudioSegment
 from openai import AsyncAzureOpenAI
 from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
-from src.azure_service import azure_transcription, azure_extract_speaker_clip, azure_match_speaker_voiceprint
+from src.azure_service import azure_transcription, azure_extract_speaker_clip, azure_match_speaker_voiceprint, azure_upload_media_and_get_sas_url
 from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription, fanolab_extract_speaker_clip, fanolab_match_speaker_voiceprint
 from src.tflow_service import get_meeting_minutes, get_project_list, get_project_memory, get_dashboard
 
@@ -85,6 +85,14 @@ def azure_extract_speaker_clip_api():
 def azure_match_speaker_voiceprint_api():
     try:
         result = azure_match_speaker_voiceprint(request)
+        return result
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+@app.route('/azure_upload_media', methods=['POST'])
+def azure_upload_media_api():
+    try:
+        result = azure_upload_media_and_get_sas_url(request)
         return result
     except Exception as e:
         return jsonify({"error": str(e)})
