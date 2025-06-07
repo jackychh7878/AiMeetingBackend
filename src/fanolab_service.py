@@ -135,7 +135,7 @@ def fanolab_transcription(request):
     source_url = data.get('source_url')
     fanolab_id = data.get('fanolab_id')
     application_owner = data.get('application_owner')
-    confidence_threshold = data.get('confidence_threshold')
+    confidence_threshold = float(data.get('confidence_threshold', 0.8))  # Convert to float with default value
 
     if not application_owner:
         return {"error": "application_owner is required"}, 400
