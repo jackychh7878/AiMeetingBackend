@@ -59,7 +59,6 @@ def fanolab_submit_transcription(request):
     data = request.get_json()
     source_url = data.get('source_url')
     language_code = data.get('language_code', 'yue-x-auto')
-    sample_rate_hertz = data.get('sample_rate_hertz', 16000)
     enable_automatic_punctuation = data.get('enable_auto_punctuation', False)
     application_owner = data.get('application_owner')
 
@@ -75,12 +74,17 @@ def fanolab_submit_transcription(request):
         return {"error": "Failed to process audio"}
 
     try:
-        # Get duration from WAV file
+        # Get duration and sample rate from WAV file
         audio = AudioSegment.from_wav(meeting_wav_path)
         duration_seconds = len(audio) / 1000  # Convert milliseconds to seconds
         duration_hours = duration_seconds / 3600  # Convert to hours
+        sample_rate_hertz = audio.frame_rate
 
-        # # Check quota before proceeding
+        # Validate sample rate
+        if not (8000 <= sample_rate_hertz <= 48000):
+            raise ValueError(f"Invalid sample rate: {sample_rate_hertz} Hz. Sample rate must be between 8000 and 48000 Hz.")
+
+        # Check quota before proceeding
         is_allowed, message = check_quota(application_owner, duration_hours)
 
         if not is_allowed:
