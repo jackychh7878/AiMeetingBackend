@@ -441,7 +441,8 @@ def fanolab_match_speaker_voiceprint(request):
         # Create output list of speaker matches
         output_list = []
         for speaker, stats in speaker_stats.items():
-            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]} ({stats.get("confidence", 0)})')
+            confidence_pct = f"{stats.get('confidence', 0) * 100:.2f}%"
+            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]} ({confidence_pct})')
 
         # Return the speaker voiceprint match
         return {"speaker": '\n'.join(output_list)}

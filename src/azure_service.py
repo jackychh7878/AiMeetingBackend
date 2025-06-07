@@ -486,7 +486,8 @@ def azure_match_speaker_voiceprint(request):
 
         output_list = []
         for speaker, stats in speaker_stats.items():
-            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]} ({stats.get("confidence", 0)})')
+            confidence_pct = f"{stats.get('confidence', 0) * 100:.2f}%"
+            output_list.append(f'Speaker-{speaker}: {stats["identified_name"]} ({confidence_pct})')
 
         # Clean up the temporary WAV file
         if os.path.exists(meeting_wav_path):
