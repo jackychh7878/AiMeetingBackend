@@ -12,4 +12,4 @@ openai==1.68.2
 webrtcvad-wheels==2.0.14
 uvicorn==0.34.0
 sqlalchemy==2.0.40
-python-magic-bin==0.4.14
+python-magic
