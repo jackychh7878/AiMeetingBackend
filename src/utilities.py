@@ -7,6 +7,7 @@ import base64
 from pydub import AudioSegment
 from collections import defaultdict
 import uuid
+import magic
 
 
 # Load environment variables
@@ -109,30 +110,33 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
     try:
         # Generate unique file names using UUID
         unique_id = str(uuid.uuid4())
-        mp4_path = os.path.join(save_dir, f"temp_audio_{unique_id}.mp4")
-        wav_path = os.path.join(save_dir, f"temp_audio_{unique_id}.wav")
+        temp_path = os.path.join(save_dir, f"temp_audio_{unique_id}")
+        mp4_path = f"{temp_path}.mp4"
+        wav_path = f"{temp_path}.wav"
 
-        # Step 1: Download file and check content type
+        # Step 1: Download file
         response = requests.get(mp4_url, stream=True)
         if response.status_code == 200:
-            content_type = response.headers.get('content-type', '').lower()
-            is_wav = 'audio/wav' in content_type or 'audio/x-wav' in content_type
-
-            # If it's a WAV file, save directly as WAV
-            if is_wav:
-                with open(wav_path, "wb") as file:
-                    for chunk in response.iter_content(chunk_size=1024):
-                        file.write(chunk)
+            # Download to temporary file first
+            with open(temp_path, "wb") as file:
+                for chunk in response.iter_content(chunk_size=1024):
+                    file.write(chunk)
+            
+            # Check file type using magic
+            mime = magic.Magic(mime=True)
+            file_type = mime.from_file(temp_path)
+            
+            # If it's a WAV file, rename to .wav
+            if file_type in ['audio/wav', 'audio/x-wav', 'audio/wave']:
+                os.rename(temp_path, wav_path)
                 print("Downloaded WAV directly")
                 return wav_path
             
-            # If it's an MP4 or other format, save as MP4 first
-            with open(mp4_path, "wb") as file:
-                for chunk in response.iter_content(chunk_size=1024):
-                    file.write(chunk)
+            # If it's an MP4 or other format, rename to .mp4
+            os.rename(temp_path, mp4_path)
             print("Downloaded MP4")
         else:
-            raise Exception(f"Failed to download MP4. Status code: {response.status_code}")
+            raise Exception(f"Failed to download file. Status code: {response.status_code}")
 
         # Step 2: Convert to WAV
         audio = AudioSegment.from_file(mp4_path, format="mp4")
@@ -147,7 +151,7 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
 
     except Exception as e:
         # Clean up any temporary files in case of error
-        for path in [mp4_path, wav_path]:
+        for path in [temp_path, mp4_path, wav_path]:
             if os.path.exists(path):
                 os.remove(path)
         print(f"Error: {e}")
