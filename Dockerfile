@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     pkg-config \
     libasound2-dev \
-    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache

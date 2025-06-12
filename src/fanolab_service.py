@@ -118,7 +118,7 @@ def fanolab_submit_transcription(request):
 
         if response:
             # Wait for 5 seconds before deleting the blob
-            time.sleep(5)
+            time.sleep(30)
             azure_delete_blob(blob_name=AZURE_BLOB_NAME)
             # Clean up the temporary WAV file
             if os.path.exists(meeting_wav_path):

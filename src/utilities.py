@@ -7,7 +7,8 @@ import base64
 from pydub import AudioSegment
 from collections import defaultdict
 import uuid
-import magic
+import platform
+import mimetypes
 
 
 # Load environment variables
@@ -122,9 +123,13 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
                 for chunk in response.iter_content(chunk_size=1024):
                     file.write(chunk)
             
-            # Check file type using magic
-            mime = magic.Magic(mime=True)
-            file_type = mime.from_file(temp_path)
+            # Check file type from URL extension (handling SAS URLs)
+            if '.mp4' in mp4_url.lower():
+                file_type = 'video/mp4'
+            elif '.wav' in mp4_url.lower():
+                file_type = 'audio/wav'
+            else:
+                raise Exception("Invalid file format. Only .mp4 and .wav files are supported.")
             
             # If it's a WAV file, rename to .wav
             if file_type in ['audio/wav', 'audio/x-wav', 'audio/wave']:
