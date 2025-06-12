@@ -135,6 +135,19 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
             if file_type in ['audio/wav', 'audio/x-wav', 'audio/wave']:
                 os.rename(temp_path, wav_path)
                 print("Downloaded WAV directly")
+                
+                # Check if we need to convert the WAV file
+                audio = AudioSegment.from_file(wav_path)
+                file_size = os.path.getsize(wav_path)
+                
+                # If sample rate is 48kHz and file size > 1GB, convert to 16kHz
+                if audio.frame_rate == 48000 and file_size > 1024 * 1024 * 1024:  # 1GB in bytes
+                    print("Converting 48kHz WAV to 16kHz due to large file size")
+                    audio = audio.set_frame_rate(16000)
+                    # Export with compression parameters: 16kHz sample rate, 16-bit depth, mono channel
+                    audio.export(wav_path, format="wav", parameters=["-ar", "16000", "-ac", "1", "-sample_fmt", "s16"])
+                    print("Converted WAV to 16kHz")
+                
                 return wav_path
             
             # If it's an MP4 or other format, rename to .mp4
@@ -145,7 +158,8 @@ def mp4_to_wav_file(mp4_url, save_dir=UPLOAD_FOLDER):
 
         # Step 2: Convert to WAV
         audio = AudioSegment.from_file(mp4_path, format="mp4")
-        audio.export(wav_path, format="wav")
+        # Export with compression parameters: 16kHz sample rate, 16-bit depth, mono channel
+        audio.export(wav_path, format="wav", parameters=["-ar", "16000", "-ac", "1", "-sample_fmt", "s16"])
         print("Converted to WAV")
 
         # Cleanup MP4 to save space
