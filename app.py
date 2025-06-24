@@ -8,6 +8,7 @@ from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
 from src.azure_service import azure_transcription, azure_extract_speaker_clip, azure_match_speaker_voiceprint, azure_upload_media_and_get_sas_url, azure_upload_file_and_get_sas_url
 from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription, fanolab_extract_speaker_clip, fanolab_match_speaker_voiceprint
 from src.tflow_service import get_meeting_minutes, get_project_list, get_project_memory, get_dashboard
+from src.blob_storage_service import minio_upload_and_share, minio_delete_blob
 import uuid
 from datetime import timedelta
 
@@ -393,6 +394,18 @@ def tflow_get_dashboard_api():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+# @app.route('/minio_upload_blob', methods=['POST'])
+# def minio_upload_blob_api():
+#     try:
+#         data = request.get_json()
+#
+#         mp4_url = data.get('source_url')
+#         fanolab_id = data.get('fanolab_id')
+#
+#         result = minio_upload_and_share(file_path)
+#         return result
+#     except Exception as e:
+#         return jsonify({"error": str(e)})
 
 if __name__ == '__main__':
     # app.run(debug=True)
