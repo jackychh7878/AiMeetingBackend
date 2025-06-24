@@ -45,7 +45,7 @@ def minio_upload_and_share(file_path: str, bucket: str, object_name: str, expiry
     return url
 
 
-def minio_delete_blob(object_name: str):
+def minio_delete_blob(bucket: str, object_name: str):
     """
     Deletes a blob from Azure Blob Storage.
 
@@ -53,7 +53,7 @@ def minio_delete_blob(object_name: str):
     :return: Boolean indicating whether the deletion was successful.
     """
     try:
-        client.remove_object("media", object_name)
+        client.remove_object(bucket, object_name)
         print(f"Blob '{object_name}' deleted successfully.")
         return True
     except Exception as e:
@@ -79,14 +79,17 @@ Note: This URL will expire in 1 hour.
 """
     return sharing_info
 
-if __name__ == '__main__':
-    file_path_link = "C:/Users/JackyChong/Downloads/polyU_CDO_demo.mp4"
-    sas_url = minio_upload_and_share(file_path=file_path_link,
-                           bucket="test-blob-bucket",
-                           object_name="test_blob",
-                           expiry_hours=1)
-    
-    print("=" * 50)
-    print("File uploaded successfully!")
-    print(generate_sharing_info(sas_url, "test_blob"))
-    print("=" * 50)
+# if __name__ == '__main__':
+#     file_path_link = "C:/Users/JackyChong/Downloads/polyU_CDO_demo.mp4"
+#     sas_url = minio_upload_and_share(file_path=file_path_link,
+#                            bucket="test-blob-bucket",
+#                            object_name="test_blob",
+#                            expiry_hours=1)
+#
+#     print("=" * 50)
+#     print("File uploaded successfully!")
+#     print(generate_sharing_info(sas_url, "test_blob"))
+#     print("=" * 50)
+#     minio_delete_blob(bucket="test-blob-bucket",object_name="test_blob")
+
+
