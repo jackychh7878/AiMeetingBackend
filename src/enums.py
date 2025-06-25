@@ -9,7 +9,7 @@ class OnPremiseMode(Enum):
     ON_CLOUD = "on_cloud"
 
 class Dashboard(Enum):
-    TIME_SPENT_BY_PROJECT = 'time_spent_on_project'
+    TIME_SPENT_ON_PROJECT = 'time_spent_on_project'
     NO_MEETING_BY_PROJECT = 'no_of_meeting_by_project'
     TIME_SPENT_BY_STAFF = 'time_spent_on_project_by_staff'
     LEADERBOARD = 'contribution_leaderboard'

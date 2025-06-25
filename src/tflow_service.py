@@ -322,8 +322,8 @@ def get_dashboard(request):
     start_dt = data.get('start_dt', None)
     end_dt = data.get('end_dt', None)
 
-    by_project_dashboard = ['time_spent_on_project', 'no_of_meeting_by_project']
-    by_staff_dashboard = ['time_spent_on_project_by_staff', 'contribution_leaderboard']
+    by_project_dashboard = [Dashboard.TIME_SPENT_ON_PROJECT.value, Dashboard.NO_MEETING_BY_PROJECT.value]
+    by_staff_dashboard = [Dashboard.TIME_SPENT_BY_STAFF.value, Dashboard.LEADERBOARD.value]
 
     output_list = []
 
@@ -377,7 +377,7 @@ def get_dashboard(request):
             meeting_count_by_project[project] += 1
 
 
-        if dashboard_name == Dashboard.TIME_SPENT_BY_PROJECT.value:
+        if dashboard_name == Dashboard.TIME_SPENT_ON_PROJECT.value:
             for project, total_duration in duration_by_project.items():
                 output_obj = {
                     "project": project,
@@ -477,14 +477,27 @@ def get_dashboard(request):
 
         speaker_map_list = response.json().get("data", {}).get("rows", [])
 
+        # Helper functions to safely convert to int and float
+        def safe_int(val, default=0):
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return default
+
+        def safe_float(val, default=0.0):
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
         # Process each record
         for row in speaker_map_list:
             name = row.get("name", "Unknown").strip() or "Unknown"
             project = row.get("project")
-            duration = int(row.get("duration", 0))
-            total_talk_time = int(row.get("total_talk_time", 0))
-            talk_time_ratio = float(row.get("talk_time", 0))
-            wpm = int(row.get("wpm", 0))
+            duration = safe_int(row.get("duration", 0))
+            total_talk_time = safe_int(row.get("total_talk_time", 0))
+            talk_time_ratio = safe_float(row.get("talk_time", 0))
+            wpm = safe_int(row.get("wpm", 0))
 
             # 1. Project time by staff
             project_time_by_staff[name][project] += duration
