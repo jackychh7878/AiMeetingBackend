@@ -1,8 +1,14 @@
-﻿import requests
+﻿import os
+from dotenv import load_dotenv
+import requests
 import json
 from collections import defaultdict
 from enum import Enum
 import urllib.parse
+from src.enums import Dashboard, OnPremiseMode
+
+# Load environment variables
+load_dotenv()
 
 # Predefined color palette for better visibility
 COLOR_PALETTE = [
@@ -17,6 +23,9 @@ COLOR_PALETTE = [
     "rgba(40, 159, 64, 0.8)",     # Green
     "rgba(210, 199, 199, 0.8)",   # Light Gray
 ]
+
+TFLOW_HOST = os.getenv("TFLOW_HOST")
+ON_PREMISES_MODE = os.getenv("ON_PREMISES_MODE")
 
 def get_project_list(request):
     """
@@ -48,7 +57,7 @@ def get_project_list(request):
         "filters": []
     }
     # Send request to Get Meeting Minutes List API
-    response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+    response = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=payload)
 
     output_list = []
     if response and response.status_code == 200:
@@ -79,7 +88,7 @@ def get_project_list(request):
                     }
                 ]
             }
-            response_glossary = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=glossary_payload)
+            response_glossary = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=glossary_payload)
 
             glossary_data = response_glossary.json().get("data", {}).get("rows", [])
 
@@ -141,7 +150,7 @@ def get_project_memory(request):
         ]
     }
     # Send request to Get Project Memory List API
-    response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+    response = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=payload)
 
     output_list = []
     if response and response.status_code == 200:
@@ -199,7 +208,7 @@ def get_meeting_minutes(request):
         ]
     }
     # Send request to Get Meeting Minutes List API
-    response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+    response = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=payload)
 
     if response:
         meeting_minutes_data = response.json()
@@ -223,7 +232,7 @@ def get_meeting_minutes(request):
                 }
             ]
         }
-        response_speaker_map = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=speaker_payload)
+        response_speaker_map = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=speaker_payload)
 
         speaker_map_data = response_speaker_map.json().get("data", {}).get("rows", [])
         output_speaker_data_list = []
@@ -256,13 +265,6 @@ def get_meeting_minutes(request):
         return output_json
 
     return response.json()
-
-
-class Dashboard(Enum):
-    TIME_SPENT_BY_PROJECT = 'time_spent_on_project'
-    NO_MEETING_BY_PROJECT = 'no_of_meeting_by_project'
-    TIME_SPENT_BY_STAFF = 'time_spent_on_project_by_staff'
-    LEADERBOARD = 'contribution_leaderboard'
 
 
 def generate_chart_url(chart_type, data, labels, datasets):
@@ -356,7 +358,7 @@ def get_dashboard(request):
             })
 
         # Send request to Get Project Memory List API
-        response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+        response = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=payload)
         # Dictionaries to hold summaries
         duration_by_project = defaultdict(int)
         meeting_count_by_project = defaultdict(int)
@@ -416,9 +418,12 @@ def get_dashboard(request):
             }
             
             # Encode the chart configuration
-            encoded_config = urllib.parse.quote(json.dumps(chart_data))
-            chart_url = f"https://quickchart.io/chart?c={encoded_config}"
-            return {"data": output_list, "chart_url": chart_url}
+            if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+                encoded_config = urllib.parse.quote(json.dumps(chart_data))
+                chart_url = f"https://quickchart.io/chart?c={encoded_config}"
+                return {"data": output_list, "chart_url": chart_url}
+            elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+                return {"data": output_list, "chart_url": None}
 
         if dashboard_name == Dashboard.NO_MEETING_BY_PROJECT.value:
             for project, count in meeting_count_by_project.items():
@@ -438,8 +443,11 @@ def get_dashboard(request):
             chart_data = {
                 "title": "Number of Meetings by Project"
             }
-            chart_url = generate_chart_url("bar", chart_data, labels, datasets)
-            return {"data": output_list, "chart_url": chart_url}
+            if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+                chart_url = generate_chart_url("bar", chart_data, labels, datasets)
+                return {"data": output_list, "chart_url": chart_url}
+            elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+                return {"data": output_list, "chart_url": None}
 
     if dashboard_name in by_staff_dashboard:
         # Prepare API request
@@ -456,7 +464,7 @@ def get_dashboard(request):
             "filters": []
         }
         # Send request to Get Project Memory List API
-        response = requests.post("https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows", json=payload)
+        response = requests.post(f"{TFLOW_HOST}/api/v2/open/worksheet/getFilterRows", json=payload)
 
         # Dictionaries to hold summaries
         project_time_by_staff = defaultdict(lambda: defaultdict(int))
@@ -568,8 +576,11 @@ def get_dashboard(request):
                     }
                 }
             }
-            chart_url = generate_chart_url("bar", chart_data, staff_names, datasets)
-            return {"data": output_list, "chart_url": chart_url}
+            if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+                chart_url = generate_chart_url("bar", chart_data, staff_names, datasets)
+                return {"data": output_list, "chart_url": chart_url}
+            elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+                return {"data": output_list, "chart_url": None}
 
         if dashboard_name == Dashboard.LEADERBOARD.value:
             for staff, stats in staff_summary.items():
