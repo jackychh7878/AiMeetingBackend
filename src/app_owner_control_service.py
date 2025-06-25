@@ -7,20 +7,13 @@ from datetime import datetime
 
 from src.enums import OnPremiseMode
 from src.models import AppOwnerControl
+from src.db_config import get_database_url
 
 
 # Load environment variables
 load_dotenv()
 
-ON_PREMISES_MODE = os.getenv("ON_PREMISES_MODE")
-
-
-DATABASE_URL: Optional[str] = None
-
-if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
-    DATABASE_URL = os.getenv("AZURE_POSTGRES_CONNECTION")
-elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
-    DATABASE_URL = os.getenv("ON_PREMISES_POSTGRES_CONNECTION")
+DATABASE_URL = get_database_url()
 
 # Create database engine
 engine = create_engine(DATABASE_URL, connect_args={'client_encoding': 'utf8'})
