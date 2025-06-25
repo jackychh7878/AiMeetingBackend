@@ -11,9 +11,11 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import librosa
 from typing import Optional, Union
+
+from src.enums import OnPremiseMode
 from src.models import VoiceprintLibrary
 
-
+# Load environment variables
 load_dotenv()
 
 # Set a directory for temporary file storage
@@ -23,11 +25,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 
+ON_PREMISES_MODE = os.getenv("ON_PREMISES_MODE")
 
-# Replace the environment variable with the properly formatted connection string
-DATABASE_URL = os.getenv("AZURE_POSTGRES_CONNECTION")
+DATABASE_URL: Optional[str] = None
+
+if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+    DATABASE_URL = os.getenv("AZURE_POSTGRES_CONNECTION")
+elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+    DATABASE_URL = os.getenv("ON_PREMISES_POSTGRES_CONNECTION")
+
+# Create database engine
 engine = create_engine(DATABASE_URL, connect_args={'client_encoding': 'utf8'})
-
 Session = sessionmaker(bind=engine)
 session = Session()
 
