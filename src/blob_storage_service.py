@@ -1,7 +1,12 @@
-﻿from minio import Minio
+﻿import os
+from dotenv import load_dotenv
+from minio import Minio
 from datetime import timedelta
 import mimetypes
 import socket
+
+# Load environment variables
+load_dotenv()
 
 def get_local_ip():
     """Get the local IP address of this machine"""
@@ -16,16 +21,33 @@ def get_local_ip():
         return "localhost"
 
 # Get the server's IP address
-server_ip = get_local_ip()
-print(f"MinIO server accessible at: {server_ip}:9000")
+# server_ip = get_local_ip()
+# print(f"MinIO server accessible at: {server_ip}:9000")
+#
+# # Initialize client
+# client = Minio(f"{server_ip}:9000",
+#                access_key="minioadmin",
+#                secret_key="minioadmin",
+#                secure=False)
 
-# Initialize client
-client = Minio(f"{server_ip}:9000",
-               access_key="minioadmin",
-               secret_key="minioadmin",
-               secure=False)
+# Public access via ngrok
+ngrok_host = os.getenv("NGROK_HOST")  # <-- use your current ngrok host
+client = Minio(f"{ngrok_host}",
+               access_key=os.getenv("NGROK_ACCESS_KEY"),
+               secret_key=os.getenv("NGROK_SECRET_KEY"),
+               secure=True)  # ngrok uses https
 
 def minio_upload_and_share(file_path: str, bucket: str, object_name: str, expiry_hours: int = 1) -> str:
+    """
+    Uploads a blob from Minio Blob Storage.
+
+    :param file_path: Path to the file to be uploaded.
+    :param bucket: Name of the bucket where the file will be uploaded.
+    :param object_name: Name of the blob to be uploaded.
+    :param expiry_hours: How long should the blob expire.
+    :return: The sas url path of the uploaded file.
+    """
+
     # Ensure bucket exists
     if not client.bucket_exists(bucket):
         client.make_bucket(bucket)
@@ -49,7 +71,8 @@ def minio_delete_blob(bucket: str, object_name: str):
     """
     Deletes a blob from Azure Blob Storage.
 
-    :param blob_name: Name of the blob to be deleted.
+    :param bucket: Bucket of the blob
+    :param object_name: Name of the blob to be deleted.
     :return: Boolean indicating whether the deletion was successful.
     """
     try:
@@ -80,16 +103,16 @@ Note: This URL will expire in 1 hour.
     return sharing_info
 
 # if __name__ == '__main__':
-#     file_path_link = "C:/Users/JackyChong/Downloads/polyU_CDO_demo.mp4"
-#     sas_url = minio_upload_and_share(file_path=file_path_link,
-#                            bucket="test-blob-bucket",
-#                            object_name="test_blob",
-#                            expiry_hours=1)
-#
-#     print("=" * 50)
-#     print("File uploaded successfully!")
-#     print(generate_sharing_info(sas_url, "test_blob"))
-#     print("=" * 50)
-#     minio_delete_blob(bucket="test-blob-bucket",object_name="test_blob")
+    # file_path_link = "C:/Users/JackyChong/Downloads/polyU_CDO_demo.mp4"
+    # sas_url = minio_upload_and_share(file_path=file_path_link,
+    #                        bucket="test-blob-bucket",
+    #                        object_name="test_blob",
+    #                        expiry_hours=1)
+    #
+    # print("=" * 50)
+    # print("File uploaded successfully!")
+    # print(generate_sharing_info(sas_url, "test_blob"))
+    # print("=" * 50)
+    # minio_delete_blob(bucket="test-blob-bucket",object_name="test_blob")
 
 
