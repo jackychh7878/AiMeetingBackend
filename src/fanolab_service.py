@@ -5,7 +5,10 @@ import time
 from collections import defaultdict
 from pydub import AudioSegment
 from flask import Flask, request, jsonify, send_from_directory
+from typing import Optional
 from src.azure_service import azure_upload_file_and_get_sas_url, azure_delete_blob
+from src.blob_storage_service import minio_upload_and_share, minio_delete_blob
+from src.enums import OnPremiseMode
 from src.utilities import format_time, mp4_to_wav_file, extract_audio_segment
 from src.voiceprint_library_service import search_voiceprint
 from src.app_owner_control_service import check_quota
@@ -48,8 +51,11 @@ AZURE_BLOB_NAME = 'temp_audio.wav'
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+FANOLAB_HOST = os.getenv("FANOLAB_HOST")
 FANOLAB_API_KEY = os.getenv("FANOLAB_API_KEY")
 headers = {"Authorization": f"Bearer {FANOLAB_API_KEY}", "Content-Type": "application/json"}
+
+ON_PREMISES_MODE = os.getenv("ON_PREMISES_MODE")
 
 
 def fanolab_submit_transcription(request):
@@ -90,10 +96,25 @@ def fanolab_submit_transcription(request):
         if not is_allowed:
             return {"error": message}, 403
 
-        # Upload audio file to Azure Blob Storage
-        wav_url = azure_upload_file_and_get_sas_url(file_path=meeting_wav_path, blob_name=AZURE_BLOB_NAME)
+        wav_url: Optional[str] = None
+
+        if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+            # Upload audio file to Azure Blob Storage
+            wav_url = azure_upload_file_and_get_sas_url(file_path=meeting_wav_path, blob_name=AZURE_BLOB_NAME)
+            if not wav_url:
+                return {"error": "Failed to upload audio"}, 500
+
+        elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+            wav_url = minio_upload_and_share(
+                    file_path=meeting_wav_path,
+                    bucket="meeting-minutes-temp-audio",
+                    blob_name=AZURE_BLOB_NAME)
+            if not wav_url:
+                return {"error": "Failed to upload audio"}, 500
+
+        # Validate that wav_url was successfully set
         if not wav_url:
-            return {"error": "Failed to upload audio"}, 500
+            return {"error": "Failed to upload audio file"}, 500
 
         # Prepare API request
         payload = {
@@ -114,12 +135,15 @@ def fanolab_submit_transcription(request):
         }
 
         # Send request to FanoLab API
-        response = requests.post("https://portal-demo.fano.ai/speech/long-running-recognize", json=payload, headers=headers)
+        response = requests.post(f"{FANOLAB_HOST}/speech/long-running-recognize", json=payload, headers=headers)
 
         if response:
             # Wait for 5 seconds before deleting the blob
             time.sleep(5)
-            azure_delete_blob(blob_name=AZURE_BLOB_NAME)
+            if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+                azure_delete_blob(blob_name=AZURE_BLOB_NAME)
+            elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+                minio_delete_blob(bucket="meeting-minutes-temp-audio", blob_name=AZURE_BLOB_NAME)
             # Clean up the temporary WAV file
             if os.path.exists(meeting_wav_path):
                 os.remove(meeting_wav_path)
@@ -145,7 +169,7 @@ def fanolab_transcription(request):
         return {"error": "application_owner is required"}, 400
 
     try:
-        url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
+        url = f"{FANOLAB_HOST}/speech/operations/{fanolab_id}"
         response = requests.get(url, headers=headers)
         response.raise_for_status()  # Raises an error for bad responses
         json_data = response.json()
@@ -185,7 +209,7 @@ def fanolab_transcription(request):
 
 
 def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, match_voiceprint: bool = True, application_owner: str = None, confidence_threshold: float = 0.8):
-    url = f"https://portal-demo.fano.ai/speech/operations/{fanolab_id}"
+    url = f"{FANOLAB_HOST}/speech/operations/{fanolab_id}"
     response = requests.get(url, headers=headers)
     response.raise_for_status()  # Raises an error for bad responses
     json_data = response.json()
@@ -195,7 +219,7 @@ def fanolab_fetch_completed_transcription(source_url: str, fanolab_id: str, matc
     speaker_stats = defaultdict(lambda: {"total_duration": 0, "total_words": 0, "segments": []})
     total_duration = 0
 
-    # If a source URL exists, perform the audio conversion as in the Azure version
+    # If a source URL exists, perform the audio conversion
     meeting_wav_path = mp4_to_wav_file(mp4_url=source_url)
 
     # Process each result from Fanolab's response
@@ -378,13 +402,23 @@ def fanolab_extract_speaker_clip(request):
 
             # Upload the zip file to Azure Blob Storage and get a SAS URL
             blob_name = f"speaker_clips_{unique_id}.zip"  # Use unique name for blob
-            download_url = azure_upload_file_and_get_sas_url(zip_path, blob_name)
+
+            download_url: Optional[str] = None
+
+            if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+                download_url = azure_upload_file_and_get_sas_url(file_path=zip_path, blob_name=blob_name)
+
+            elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+                download_url = minio_upload_and_share(file_path=zip_path, bucket="meeting-minutes-speaker-clip", blob_name=blob_name)
 
             # Clean up all temporary files and directories
             if os.path.exists(meeting_wav_path):
                 os.remove(meeting_wav_path)
             if os.path.exists(request_dir):
                 shutil.rmtree(request_dir)
+
+            if not download_url:
+                return {"error": "Failed to export speaker clip"}, 500
 
             return {"download_url": download_url}
 

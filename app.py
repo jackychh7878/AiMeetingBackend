@@ -4,6 +4,8 @@ from flask import Flask, request, jsonify, send_from_directory, render_template_
 import requests
 from pydub import AudioSegment
 from openai import AsyncAzureOpenAI
+
+from src.enums import OnPremiseMode
 from src.voiceprint_library_service import search_voiceprint, insert_voiceprint
 from src.azure_service import azure_transcription, azure_extract_speaker_clip, azure_match_speaker_voiceprint, azure_upload_media_and_get_sas_url, azure_upload_file_and_get_sas_url
 from src.fanolab_service import fanolab_submit_transcription, fanolab_transcription, fanolab_extract_speaker_clip, fanolab_match_speaker_voiceprint
@@ -15,6 +17,9 @@ from datetime import timedelta
 # Load environment variables
 load_dotenv()
 app = Flask(__name__)
+
+# On cloud or on premises
+ON_PREMISES_MODE = os.getenv("ON_PREMISES_MODE")
 
 # HTML template for the frontend
 UPLOAD_TEMPLATE = """
@@ -254,19 +259,37 @@ def upload_file():
             
             # Generate blob name
             blob_name = f"media/{unique_id}.{file_type}"
-            
-            # Upload to Azure with 1-year expiry
-            sas_url = azure_upload_file_and_get_sas_url(
-                file_path=temp_filepath,
-                blob_name=blob_name,
-                expiry_date=timedelta(days=365)
-            )
-            
-            if not sas_url:
-                return jsonify({"error": "Failed to upload file to Azure"}), 500
-                
-            return jsonify({"sas_url": sas_url})
-            
+
+            # Upload with 1-year expiry
+            # Upload to Azure
+            if ON_PREMISES_MODE == OnPremiseMode.ON_CLOUD.value:
+                sas_url = azure_upload_file_and_get_sas_url(
+                    file_path=temp_filepath,
+                    blob_name=blob_name,
+                    expiry_date=timedelta(days=365)
+                )
+
+                if not sas_url:
+                    return jsonify({"error": "Failed to upload file to Azure"}), 500
+
+                return jsonify({"sas_url": sas_url})
+
+            # Upload to MinIO
+            elif ON_PREMISES_MODE == OnPremiseMode.ON_PREMISES.value:
+                sas_url = minio_upload_and_share(
+                    file_path=temp_filepath,
+                    bucket="meeting-minutes",
+                    blob_name=blob_name,
+                    expiry_date=timedelta(days=7)
+                )
+
+                if not sas_url:
+                    return jsonify({"error": "Failed to upload file to MinIO Storage"}), 500
+
+                return jsonify({"sas_url": sas_url})
+            # Incorrect env variable
+            else:
+                return jsonify({"error": "Failed to upload file to Blob Storage: Incorrect env variable"}), 500
         finally:
             # Clean up temporary file
             if os.path.exists(temp_filepath):
@@ -275,9 +298,9 @@ def upload_file():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/upload/url', methods=['POST'])
-def upload_url():
-    return azure_upload_media_and_get_sas_url(request)
+# @app.route('/upload/url', methods=['POST'])
+# def upload_url():
+#     return azure_upload_media_and_get_sas_url(request)
 
 @app.route('/azure_transcription', methods=['POST'])
 def azure_transcription_api():

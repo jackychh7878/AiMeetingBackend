@@ -34,8 +34,8 @@ client = Minio(f"{server_ip}:9000",
                secure=False)
 
 # Check if the minio blob storage is public access, or only local access
-ngrok_public_mode = os.getenv("NGROK_PUBLIC_MODE")
-if ngrok_public_mode == NgrokMode.PUBLIC.value:
+NGROK_PUBLIC_MODE = os.getenv("NGROK_PUBLIC_MODE")
+if NGROK_PUBLIC_MODE == NgrokMode.PUBLIC.value:
     # Public access via ngrok
     ngrok_host = os.getenv("NGROK_HOST")  # <-- use your current ngrok host
     client = Minio(f"{ngrok_host}",
