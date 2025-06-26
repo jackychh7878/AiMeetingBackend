@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  ai_meeting_backend:
+    image: jccatomind/ai_meeting_backend:latest
+    container_name: ai_meeting_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - GUNICORN_CMD_ARGS=--timeout=300 --workers=2 --threads=4 --worker-class=gthread
+      - AZURE_STT_API_KEY=${AZURE_STT_API_KEY}
+      - FANOLAB_HOST=${FANOLAB_HOST}
+      - FANOLAB_API_KEY=${FANOLAB_API_KEY}
+      - AZURE_POSTGRES_CONNECTION=${AZURE_POSTGRES_CONNECTION}
+      - AZURE_CONTAINER_NAME=${AZURE_CONTAINER_NAME}
+      - AZURE_ACCOUNT_NAME=${AZURE_ACCOUNT_NAME}
+      - AZURE_ACCOUNT_KEY=${AZURE_ACCOUNT_KEY}
+      - ON_PREMISES_MODE=${ON_PREMISES_MODE}
+      - NGROK_PUBLIC_MODE=${NGROK_PUBLIC_MODE}
+      - NGROK_HOST=${NGROK_HOST}
+      - NGROK_ACCESS_KEY=${NGROK_ACCESS_KEY}
+      - NGROK_SECRET_KEY=${NGROK_SECRET_KEY}
+      - TFLOW_HOST=${TFLOW_HOST}
+      - ON_PREMISES_POSTGRES_CONNECTION=${ON_PREMISES_POSTGRES_CONNECTION}
+    depends_on:
+      - pgvector
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+    volumes:
+      - ./path/to/.env:/app/.env:ro
+
+  pgvector:
+    image: pgvector/pgvector:pg17
+    container_name: pgvector
+    environment:
+      - POSTGRES_USER=sqladmin
+      - POSTGRES_PASSWORD=P@ssw0rd
+      - POSTGRES_DB=op_postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+      - ./init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sqladmin"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+      - minio_config:/root/.minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  pgvector_data:
+  minio_data:
+  minio_config: 
