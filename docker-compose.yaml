@@ -229,6 +229,17 @@ services:
     depends_on:
      - ollama-gpu-amd
 
+  ai_meeting_chatbot_frontend:
+    image: jccatomind/ai_meeting_chatbot_frontend:latest
+    container_name: ai_meeting_chatbot_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_N8N_BASE_URL=http://localhost:5678
+    networks:
+      - ai_network
+
 volumes:
   pgvector_data:
   minio_data:
