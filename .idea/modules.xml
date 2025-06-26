@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/TranscribingVideo.iml" filepath="$PROJECT_DIR$/.idea/TranscribingVideo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/AiMeetingBackend.iml" filepath="$PROJECT_DIR$/.idea/AiMeetingBackend.iml" />
     </modules>
   </component>
 </project>

@@ -4,6 +4,7 @@ services:
   ai_meeting_backend:
     image: jccatomind/ai_meeting_backend:latest
     container_name: ai_meeting_backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
@@ -43,7 +44,7 @@ services:
     environment:
       - POSTGRES_USER=sqladmin
       - POSTGRES_PASSWORD=P@ssw0rd
-      - POSTGRES_DB=op_postgres
+      - POSTGRES_DB=postgres
     ports:
       - "5432:5432"
     volumes:
