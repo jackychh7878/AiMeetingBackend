@@ -84,27 +84,52 @@ services:
     networks:
       - ai_network
 
+  # Dedicated Postgres for n8n
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_n8n_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ai_network
+
   # n8n and AI stack
   n8n-import:
     image: n8nio/n8n:latest
     container_name: n8n-import
+    hostname: n8n-import
     entrypoint: /bin/sh
     command:
       - "-c"
       - "n8n import:credentials --separate --input=/demo-data/credentials && n8n import:workflow --separate --input=/demo-data/workflows"
     environment:
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=pgvector
-      - DB_POSTGRESDB_USER=sqladmin
-      - DB_POSTGRESDB_PASSWORD=P@ssw0rd
-      - DB_POSTGRESDB_DATABASE=postgres
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_PERSONALIZATION_ENABLED=false
       - OLLAMA_HOST=ollama:11434
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_USER_MANAGEMENT_JWT_SECRET}
+      - N8N_DEFAULT_BINARY_DATA_MODE=${N8N_DEFAULT_BINARY_DATA_MODE}
     volumes:
       - ./n8n/demo-data:/demo-data
     depends_on:
-      pgvector:
+      postgres:
         condition: service_healthy
     networks:
       - ai_network
@@ -117,19 +142,23 @@ services:
       - 5678:5678
     environment:
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=pgvector
-      - DB_POSTGRESDB_USER=sqladmin
-      - DB_POSTGRESDB_PASSWORD=P@ssw0rd
-      - DB_POSTGRESDB_DATABASE=postgres
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_PERSONALIZATION_ENABLED=false
       - OLLAMA_HOST=ollama:11434
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_USER_MANAGEMENT_JWT_SECRET}
+      - N8N_DEFAULT_BINARY_DATA_MODE=${N8N_DEFAULT_BINARY_DATA_MODE}
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./n8n/demo-data:/demo-data
       - ./n8n/shared:/data/shared
     depends_on:
-      pgvector:
+      postgres:
         condition: service_healthy
       n8n-import:
         condition: service_completed_successfully
@@ -255,6 +284,7 @@ volumes:
   n8n_storage:
   ollama_storage:
   qdrant_storage:
+  postgres_n8n_data:
 
 networks:
   ai_network:
