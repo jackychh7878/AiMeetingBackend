@@ -33,6 +33,10 @@ This project combines an AI-powered meeting backend with a self-hosted n8n autom
      ```sh
      docker compose --profile gpu-amd up
      ```
+   - For Closing all services
+     ```sh
+     docker compose down -v
+     ```
 
 4. **Access the services:**
    - Backend API: [http://localhost:8000](http://localhost:8000)
@@ -55,3 +59,37 @@ This project combines an AI-powered meeting backend with a self-hosted n8n autom
 - [ ] Add API documentation
 - [ ] Add workflow examples
 - [ ] Add troubleshooting and FAQ
+
+## Running Ollama Pull Commands After docker-compose up
+
+After starting your services with `docker-compose up`, you may want to pull additional models into your running Ollama container. Here are two ways to do this:
+
+### 1. Run a One-Off Pull Command
+
+You can execute a pull command directly inside the running Ollama container (named `ollama`) using:
+
+```sh
+docker exec ollama ollama pull qwen3:0.6b
+```
+
+Replace `qwen3:0.6b` with the model you wish to pull.
+
+### 2. Open an Interactive Shell in the Container
+
+If you want to run multiple commands or work interactively:
+
+```sh
+docker exec -it ollama /bin/sh
+```
+
+Then, inside the shell, type:
+
+```sh
+ollama pull qwen3:0.6b
+```
+
+This allows you to run any other commands as needed inside the container.
+
+---
+
+Use the first method for single commands, and the second for interactive work.
