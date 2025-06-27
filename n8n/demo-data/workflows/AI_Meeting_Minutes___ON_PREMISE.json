@@ -1,0 +1,1435 @@
+{
+  "name": "AI Meeting Minutes - ON PREMISE",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Step 1: Batch Transcribing Videos On Fanolab\n1. Look up the T-flow pending to transcribe video\n2. Batch transcribe\n3. Wait until the results return",
+        "height": 440,
+        "width": 2920
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        260,
+        60
+      ],
+      "typeVersion": 1,
+      "id": "e67cccc8-5720-41bd-9185-6b3603de52ec",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.first().json.data.rows;\n\nconst result_list = items.map((item) => {\n  return {\n    rowid: item.rowid,\n    video_name: item.video_name,\n    url: item.url,\n    sys_id: item.sys_id\n  };\n});\n\nreturn result_list;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        280
+      ],
+      "id": "82e1de0f-0019-4b15-b979-91ca994e0ac6",
+      "name": "Return Url List"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        900,
+        280
+      ],
+      "id": "5b7e3193-4d6b-45b3-af9b-e026a2c4659b",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.first().json.data.rows;\n\nconst result_list = items.map((item) => {\n  return {\n    rowid: item.rowid,\n    video_name: item.video_name,\n    url: item.url,\n    sys_id: item.sys_id,\n    fanolab_id: item.fanolab_id\n  };\n});\n\nreturn result_list;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        260
+      ],
+      "id": "1016748c-48f6-410c-a48a-0dfeecb2d7b7",
+      "name": "Return Url List1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2060,
+        260
+      ],
+      "id": "c068e265-938a-4d5d-ad52-c55140a44fd7",
+      "name": "Loop Over Items3"
+    },
+    {
+      "parameters": {
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3000,
+        380
+      ],
+      "id": "ca68b959-bf31-4367-aa4e-e3c0c3863ffd",
+      "name": "Wait 10mins",
+      "webhookId": "dae4800e-9d66-459b-bb1e-d78437b5892d"
+    },
+    {
+      "parameters": {
+        "content": "## Step 2: Update the Transcription to T-flow\n1. Look up transcription \n2. Update to T-flow",
+        "height": 440,
+        "width": 2880,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        280,
+        620
+      ],
+      "typeVersion": 1,
+      "id": "b9ceb9d2-b561-46d1-beac-6f6fa8c341cc",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "jsCode": "var target_row_id = $('Loop Over Items3').first().json.rowid\nvar transcription = $input.first().json.transcriptions\nvar speaker_stats = $input.first().json.speaker_stats\nvar speaker_list = []\nfor (const speaker in speaker_stats) {\n  if (speaker_stats.hasOwnProperty(speaker)) {\n      speaker_list.push({\n          speaker_id: speaker,\n          ...speaker_stats[speaker]\n      });\n  }\n}\nvar total_duration = $input.first().json.total_duration\n\n\nvar output = {\n  rowid: target_row_id, \n  total_duration: total_duration,\n  speaker_stats: speaker_list,\n  transcriptions: transcription }\n\nreturn output\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        820
+      ],
+      "id": "40b3d41a-e125-4b8f-b4f7-e70c14f1f8db",
+      "name": "Map RowId and Transcriptions1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        1600,
+        860
+      ],
+      "id": "197451c1-214f-4be0-9a51-b6144f9a41ed",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "var speaker_stats = $input.first().json.speaker_stats;\nvar resultArray = [];\n\nfor (const speaker of speaker_stats) {\n    var output_obj = [\n        { \"controlId\": \"speaker\", \"value\": speaker.speaker_id },\n        { \"controlId\": \"meeting_minutes\", \"value\": $input.first().json.rowid }, // Assuming static value\n        { \"controlId\": \"wpm\", \"value\": speaker.words_per_minute.toFixed(2) },\n        { \"controlId\": \"talk_time\", \"value\": (speaker.percentage / 100).toFixed(2) },\n        { \"controlId\": \"total_talk_time\", \"value\": (speaker.total_duration / 60).toFixed(2) }\n    ]\n        if (speaker.identified_name !== \"unknown\") {\n            output_obj.push({ \"controlId\": \"name\", \"value\": speaker.identified_name });\n        }\n  \n    resultArray.push(output_obj);\n}\n\nreturn {data: resultArray};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        920
+      ],
+      "id": "8a2c76eb-7d81-45e6-b512-fa67987abcaa",
+      "name": "Set Speaker Map Data2"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "358e98c1-5b86-4d8c-88e9-f46f6b7996d5",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        80,
+        280
+      ],
+      "id": "5afdc026-137c-402d-b164-b4bd27981ce3",
+      "name": "Webhook",
+      "webhookId": "358e98c1-5b86-4d8c-88e9-f46f6b7996d5",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5smlbamU5XVCovKu",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Webhook').item.json.body.appKey}}\",\n  \"sign\": \"{{ $('Webhook').item.json.body.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"pageSize\": 50,\n  \"pageIndex\": 1,\n  \"listType\": 1,\n  \"filters\":[\n        {\n            \"controlId\":\"process_status\",\n            \"spliceType\": 1,\n            \"filterType\":2,\n            \"value\": \"Pending To Process\"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        340,
+        280
+      ],
+      "id": "58b9ef25-b93b-48e0-a0c9-36680d8aa35f",
+      "name": "[T-flow] Get Meeting Minutes List"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ai_meeting_backend:8000/fanolab_submit_transcription",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "source_url",
+              "value": "={{ $json.url }}"
+            },
+            {
+              "name": "language_code",
+              "value": "yue-x-auto"
+            },
+            {
+              "name": "application_owner",
+              "value": "={{ $('Webhook').item.json.body.app_owner }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        380
+      ],
+      "id": "ff97748a-d637-4696-ad1b-ef5891ce1ecb",
+      "name": "[Backend] Submit Fanolab API"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/editRow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Webhook').item.json.body.appKey}}\",\n  \"sign\": \"{{ $('Webhook').item.json.body.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"rowId\":\"{{ $('Loop Over Items2').item.json.rowid }}\",\n  \"triggerWorkflow\": false,\n  \"controls\":[\n        {\n            \"controlId\":\"fanolab_id\",\n            \"value\":\"{{ $json.name }}\"\n        },\n        {\n           \"controlId\":\"process_status\",\n            \"value\":\"Transcribing\"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        380
+      ],
+      "id": "da53eeca-9638-487b-998c-6adacf47f805",
+      "name": "[T-flow] Update T-flow Fanolab ID",
+      "notesInFlow": true,
+      "notes": "Update the transcript and the status of the row data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Webhook').item.json.body.appKey}}\",\n  \"sign\": \"{{ $('Webhook').item.json.body.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"rowIds\":[{{ $('[T-flow] Get Meeting Minutes List').item.json.data.rows.map(row => `\"${row.rowid}\"`).join(', ')}}],\n  \"pageSize\": 50,\n  \"pageIndex\": 1,\n  \"listType\": 1,\n  \"filters\":[\n       {\n            \"controlId\":\"process_status\",\n            \"spliceType\": 1,\n            \"filterType\":2,\n            \"value\": \"Transcribing\"\n        }\n\n\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        260
+      ],
+      "id": "61ee1e64-4955-44ed-a59e-7038525530fa",
+      "name": "[T-flow] Get Meeting Minutes List with fanolab id"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ai_meeting_backend:8000/fanolab_transcription",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "sys_id",
+              "value": "={{ $('Cache Fanolab Data').item.json.sys_id }}"
+            },
+            {
+              "name": "fanolab_id",
+              "value": "={{ $('Cache Fanolab Data').item.json.fanolab_id }}"
+            },
+            {
+              "name": "source_url",
+              "value": "={{ $('Cache Fanolab Data').item.json.url }}"
+            },
+            {
+              "name": "application_owner",
+              "value": "={{ $('Webhook').item.json.body.app_owner }}"
+            },
+            {
+              "name": "confidence_threshold",
+              "value": "={{ $('Webhook').item.json.body.confidence_threshold }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2480,
+        340
+      ],
+      "id": "c63bc105-c808-47c5-91d5-05cd1cf1a851",
+      "name": "[Backend] Get Fanolab Transcription",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/editRow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Webhook').item.json.body.appKey}}\",\n  \"sign\": \"{{ $('Webhook').item.json.body.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"rowId\":\"{{ $json.rowid}}\",\n  \"triggerWorkflow\": false,\n  \"controls\":[\n        {\n            \"controlId\":\"process_status\",\n            \"value\":\"Pending To AI\"\n        },\n        {\n            \"controlId\":\"transcript\",\n            \"value\": \"{{ $json.transcriptions.join(\"\\\\n\")}}\"\n        },\n        {\n            \"controlId\":\"duration\",\n            \"value\": \"{{ ($json.total_duration / 60)}}\"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        760
+      ],
+      "id": "b0ee65a2-3896-4585-b773-46f34ca01eb1",
+      "name": "[T-flow] Update T-flow Fano Data",
+      "notesInFlow": true,
+      "notes": "Update the transcript and the status of the row data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/addRows",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "appKey",
+              "value": "={{ $('Webhook').item.json.body.appKey}}"
+            },
+            {
+              "name": "sign",
+              "value": "={{ $('Webhook').item.json.body.sign}}"
+            },
+            {
+              "name": "worksheetId",
+              "value": "speaker_map"
+            },
+            {
+              "name": "triggerWorkflow",
+              "value": "true"
+            },
+            {
+              "name": "rows",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        920
+      ],
+      "id": "fb246974-9c56-4833-a396-31594af47b33",
+      "name": "[T-flow] Update Speaker Map Fano",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "success",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e992a465-f6df-469b-ab4e-5aacf6ea5524"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Success"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "84e7d4e1-8ce6-49f0-aa91-217263a3cf0a",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "failed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Failed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "927472c8-9aaf-4f6f-ac90-011672909663",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "in_progress",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "In progress"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2660,
+        340
+      ],
+      "id": "875c7880-7158-4714-bae4-d7d95ae223d6",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/editRow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Webhook').item.json.body.appKey}}\",\n  \"sign\": \"{{ $('Webhook').item.json.body.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"rowId\":\"{{ $('Loop Over Items3').item.json.rowid}}\",\n  \"triggerWorkflow\": false,\n  \"controls\":[\n        {\n            \"controlId\":\"process_status\",\n            \"value\":\"Failed\"\n        },\n        {\n            \"controlId\":\"transcript\",\n            \"value\": \"Failed: {{$json.message}} \"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        80
+      ],
+      "id": "7016930b-b5f5-4c73-b671-a245cfb341cc",
+      "name": "[T-flow] Update T-flow Data Failed1",
+      "notesInFlow": true,
+      "notes": "Update the transcript and the status of the row data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "18bc23c8-a109-4372-987e-79b8dacb0076",
+              "name": "sys_id",
+              "value": "={{ $json.sys_id }}",
+              "type": "string"
+            },
+            {
+              "id": "6e228561-1fa9-4da3-bb17-864bab45b8a1",
+              "name": "rowid",
+              "value": "={{ $json.rowid }}",
+              "type": "string"
+            },
+            {
+              "id": "ad737cee-c578-4d05-a38c-3c56ce8af619",
+              "name": "video_name",
+              "value": "={{ $json.video_name }}",
+              "type": "string"
+            },
+            {
+              "id": "635a0c65-ee5d-4e91-bb39-0be055bd7d66",
+              "name": "url",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "c4ee200d-47df-4bd9-8914-cc6d9530e6d5",
+              "name": "fanolab_id",
+              "value": "={{ $json.fanolab_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2260,
+        340
+      ],
+      "id": "e3cd861e-f615-4162-b103-d9c1b55c265f",
+      "name": "Cache Fanolab Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items_list = $input.first().json.data.rows;\n\nvar output_list = []\n\nfor (const item of items_list) {\n  var output_obj = {\n    rowid: item.rowid,\n    sys_id: item.sys_id,\n    datetime: item.datetime,\n    project: item.project,\n    description: item.description,\n    transcript: item.transcript\n  }\n  output_list.push(output_obj)\n}\n\n// Sort by datetime (assuming datetime is in a format that can be sorted correctly as a string)\noutput_list.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));\n\n\nreturn output_list;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        1420
+      ],
+      "id": "1affefa0-c2d0-45cc-94cd-5920e7c9d3af",
+      "name": "Map the Transcript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst updatedItems = items.map((item) => {\n  // const textArray = $input.first().json.text.split(\"\\n\");\n  const textArray = $input.first().json.output.output_text.split(\"\\n\");\n  return { textArray };\n});\nreturn updatedItems;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2300,
+        1500
+      ],
+      "id": "ddbbafd1-ee2d-478c-9c9d-9945a788f985",
+      "name": "Set response1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aac290ed-b8f5-4ff7-b1cb-7e12437b6c30",
+              "name": "project_rowid",
+              "value": "={{ $json.data.rows[0].rowid }}",
+              "type": "string"
+            },
+            {
+              "id": "cffa3886-58b2-4a95-b680-faeb331a5a21",
+              "name": "rowid",
+              "value": "={{ $('Loop Over Items5').item.json.rowid }}",
+              "type": "string"
+            },
+            {
+              "id": "6a34171b-69fe-4c63-ac4b-748b22bce907",
+              "name": "datetime",
+              "value": "={{ $('Loop Over Items5').item.json.datetime }}",
+              "type": "string"
+            },
+            {
+              "id": "e3f3a068-1b6b-4bc6-94b8-34850456a50e",
+              "name": "description",
+              "value": "={{ $('Loop Over Items5').item.json.description }}",
+              "type": "string"
+            },
+            {
+              "id": "56c68ce0-ee31-4876-b390-86ce96446d49",
+              "name": "transcript",
+              "value": "={{ $('Loop Over Items5').item.json.transcript }}",
+              "type": "string"
+            },
+            {
+              "id": "3dca3745-ed45-49c3-843d-438824e1b0ec",
+              "name": "project_overview",
+              "value": "={{ $('[T-flow] Get Project Context1').item.json.data.rows.first().overview}}",
+              "type": "string"
+            },
+            {
+              "id": "3007f9bb-c1d0-45f9-949f-90c1198f9b97",
+              "name": "glossary",
+              "value": "={{ $('[T-flow] Get Project Context1').item.json.data.rows.first().glossary}}",
+              "type": "string"
+            },
+            {
+              "id": "859811a6-223d-4516-a75a-583cf84b0610",
+              "name": "long_term_memory",
+              "value": "={{ $('[T-flow] Get Project Context1').item.json.data.rows.first().memory}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        1500
+      ],
+      "id": "d55608ac-1a62-4057-8547-77e9346368de",
+      "name": "Set Project Context1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Objective:\nYou are responsible for maintaining a concise long-term memory of project discussions. When a new meeting transcript is provided, update the memory with key points while ensuring brevity and relevance.\n\nMemory Update Format:\nFor each new update, summarize the transcript using the following structure in pure text, the format is listed within the <format> tag:\n<format>\nDatetime: [Date and time of the meeting]\nDiscussion Points: [Key topics discussed]\nDecisions Made: [Finalized conclusions or agreements]\nAction Items: [Tasks assigned, including responsible parties]\nGuidelines for Updating Memory:\nBe Concise: Summarize only the essential points. Avoid redundancy or excessive details.\nPrioritize Relevance: Focus on updates that impact future discussions or decisions.\nMaintain Clarity: Use clear and structured bullet points for easy reference.\nEnsure Continuity: Retain important context from previous updates while integrating new information logically.\nLanguage: Make sure everything is written in Cantonese\nOutput format: Make sure the output is pure string\n</format>\n\n# Below is the Project Context, background for reference only, not the current meeting minutes:\n<PROJECT BACKGROUND CONTEXT, DON'T SUMMARIZE IT AS MEETING CONTENT>\n\n# Project Overview:\n<project context for reference, DON'T SUMMARIZE IT AS MEETING CONTENT>\n{{ $('Set Project Context1').first().json.project_overview }}\n</project context for reference, DON'T SUMMARIZE IT AS MEETING CONTENT>\n\n# Current memory:\n<project memory for reference, DON'T SUMMARIZE IT AS MEETING CONTENT>\n{{ $('Set Memory List1').item.json.output_list.toJsonString() }}\n</project memory for reference, DON'T SUMMARIZE IT AS MEETING CONTENT>\n\n# Here is the glossary of the project\n<project glossary>\n{{ $('Set Project Context1').first().json.glossary }}\n</project glossary>\n\n\n</PROJECT BACKGROUND CONTEXT, DON'T SUMMARIZE IT AS MEETING CONTENT>\n\n\n<ACTUAL MEETING MINUTES TO BE SUMMARIZED>\n\n# Meeting Description\n<new meeting description>\n{{ $('Set Project Context1').first().json.description }}\n</new meeting description>\n\n# Meeting Minutes Date\n{{ $('Set Project Context1').first().json.datetime }}\n\n# Summarize the below new meeting for updating the new memory\n<New meeting minutes pending to be summarized>\n{{ $('Set response1').item.json.textArray.join(\"\\\\n\") }}\n</New meeting minutes pending to be summarized>\n\n</ACTUAL MEETING MINUTES TO BE SUMMARIZED>"
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        2400,
+        1760
+      ],
+      "id": "1cccc8e6-a51c-4f3d-94e1-539475c62d6e",
+      "name": "Updating LT Memory Chain1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n\nvar output_list = []\nfor (const item of $input.first().json.data.rows) {\n  var meeting_dt = item.datetime\n  var meeting_memory = item.memory\n  var output = {meeting_dt: meeting_dt, meeting_memory: meeting_memory}\n  output_list.push(output)\n}\n\nreturn {output_list};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        1500
+      ],
+      "id": "5862f589-9a90-4678-a149-092c81285472",
+      "name": "Set Memory List1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# Meeting Date\n{{ $('Set Project Context1').first().json.datetime }}\n\n# Meeting Description\n<project description>\n{{ $('Set Project Context1').first().json.description }}\n</project description>\n\n# Here is the glossary of the project\n<project glossary>\n{{ $('Set Project Context1').first().json.glossary }}\n</project glossary>\n\n#Task:\nSummarize the provided meeting minutes transcript below into clear, concise bullet points.\n\n#Rules:\n1. Summarize the transcript in Cantonese.\n2. Present the summary entirely in bullet point format.\n3. Focus on capturing key discussion points, decisions made, and action items (including responsible persons and deadlines if mentioned).\n<example>\n- **會議日期：** 2025年3月18日 08:46 AM\n- **會議主題：** XXXX\n\n**討論要點：**\n- XXXX\n\n**決策：**\n- XXXX\n\n**行動項目：**\n- XXXXX\n\n**其他重點：**\n- XXXX\n</example>\n\n4. Use concise and objective language, following best practices for effective meeting minutes.\n\n5. Structure your summary in a way that mirrors the meeting agenda where possible\n\n6. Make sure for each item, you added the timeline as citation to the transcript\n<example>\n**討論要點：**\n- XXXX (00:12:00 - 00:15:00)\n</example>\n\nWrite a concise summary of the following:\n<summarize transcript>\n{{ $('Set Project Context1').first().json.transcript }}\n</summarize transcript>\n\nCONCISE SUMMARY:"
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        1860,
+        1200
+      ],
+      "id": "27beca3b-5c8c-4917-8418-8b2fc5b9aeaa",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "586c23aa-3a7b-4d11-9c5e-c2e36efce3c7",
+              "name": "appKey",
+              "value": "={{ $json.appKey }}",
+              "type": "string"
+            },
+            {
+              "id": "76fafa1e-7d84-4337-a3ec-64da7d81a1dd",
+              "name": "sign",
+              "value": "={{ $json.sign }}",
+              "type": "string"
+            },
+            {
+              "id": "01ede934-21de-47f1-9c83-906766fbc1d4",
+              "name": "rowIds",
+              "value": "={{ $json.rowIds }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        1320
+      ],
+      "id": "8090671c-fb00-4061-b5e8-7d75650ab514",
+      "name": "Set Workflow State1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"appKey\": \"{{ $('Set Workflow State1').first().json.appKey}}\",\n  \"sign\": \"{{ $('Set Workflow State1').first().json.sign }}\",\n  \"worksheetId\": \"project_overview\",\n  \"pageSize\": 50,\n  \"pageIndex\": 1,\n  \"listType\": 1,\n  \"filters\":[\n      {\n        \"controlId\":\"project\",\n        \"spliceType\": 1,\n        \"filterType\":2,\n        \"value\": \"{{ $json.project }}\"\n      }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        1500
+      ],
+      "id": "804c189b-8dbe-47bc-8b33-5593ac6a4035",
+      "name": "[T-flow] Get Project Context1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/editRow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{$('Set Workflow State1').first().json.appKey}}\",\n  \"sign\": \"{{$('Set Workflow State1').first().json.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"triggerWorkflow\": true,\n  \"controls\": [\n    {\n      \"controlId\": \"process_status\",\n      \"value\": \"Completed\"\n    },\n    {\n      \"controlId\": \"ai_summary\",\n      \"value\": \"{{ $json.textArray.join(\"\\\\n\") }}\"\n    }\n  ],\n  \"rowId\": \"{{ $('Set Project Context1').item.json.rowid}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2500,
+        1500
+      ],
+      "id": "f7148453-4bf4-40bc-87a7-a898c35b5696",
+      "name": "[T-flow] Update AI Summary1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{$('Set Workflow State1').first().json.appKey}}\",\n  \"sign\": \"{{$('Set Workflow State1').first().json.sign}}\",\n  \"worksheetId\": \"project_memory\",\n  \"pageSize\": 50,\n  \"pageIndex\": 1,\n  \"listType\": 0,\n  \"controls\": [],\n  \"filters\": [\n      {\n        \"controlId\":\"project\",\n        \"value\": \"{{$('Loop Over Items5').item.json.project}}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2700,
+        1500
+      ],
+      "id": "3a481de0-2103-45f5-ba6c-8195b4d59644",
+      "name": "[T-flow] Get Project Memory1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/addRow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{$('Set Workflow State1').first().json.appKey}}\",\n  \"sign\": \"{{$('Set Workflow State1').first().json.sign}}\",\n  \"worksheetId\": \"project_memory\",\n  \"triggerWorkflow\": true,\n  \"controls\": [\n    {\n      \"controlId\": \"datetime\",\n      \"value\": \"{{ $('Loop Over Items5').item.json.datetime }}\"\n    },\n    {\n      \"controlId\": \"project_overview\",\n      \"value\": \"{{ $('Set Project Context1').item.json.project_rowid }}\"\n    },\n    {\n      \"controlId\": \"meeting_minutes\",\n      \"value\": \"{{ $('Loop Over Items5').item.json.rowid }}\"\n    },\n    {\n      \"controlId\": \"memory\",\n      \"value\": \"{{ $json.text.replaceAll(/\\r?\\n/g, \"\\\\n\").replaceAll(\"\\\\n{\\\\n\", \"\").replaceAll(\"\\\\n}\\\\n\", \"\").replaceAll(/```/g, \"\") }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2900,
+        1760
+      ],
+      "id": "63d42661-aa74-4f82-8bbf-34537f72e003",
+      "name": "[T-flow] Update Memory List1"
+    },
+    {
+      "parameters": {
+        "content": "## Step 3: Contextual Summarize By AI\n1. Look up transcription \n2. Look up previous long term memory",
+        "height": 880,
+        "width": 2860,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        280,
+        1160
+      ],
+      "typeVersion": 1,
+      "id": "be4e0818-9a9f-4ed6-a8dd-ccfaa48b4360",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1200,
+        1420
+      ],
+      "id": "9b853da8-b7da-49ff-80a6-30b3d2e204fa",
+      "name": "Loop Over Items5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/getFilterRows",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Set Workflow State1').item.json.appKey }}\",\n  \"sign\": \"{{ $('Set Workflow State1').item.json.sign }}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"pageSize\": 50,\n  \"pageIndex\": 1,\n  \"listType\": 1,\n  \"filters\":[\n      {\n        \"controlId\":\"rowid\",\n        \"spliceType\": 1,\n        \"filterType\":2,\n        \"values\": [{{ $('Set Workflow State1').item.json.rowIds}}]\n      },\n      {\n        \"controlId\":\"process_status\",\n        \"spliceType\": 1,\n        \"filterType\":2,\n        \"value\": \"Pending To AI\"\n      }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        1420
+      ],
+      "id": "b4693928-3908-46a3-8780-0adeb140ec30",
+      "name": "[T-flow] Get Meeting Minutes List2",
+      "notesInFlow": true,
+      "notes": "By Project and Status \"Pending To AI\""
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8d2ee90f-c36b-407e-bec7-56e0e3af6778",
+              "name": "appKey",
+              "value": "={{ $('Webhook').item.json.body.appKey}}",
+              "type": "string"
+            },
+            {
+              "id": "9e86b4b5-0092-4164-b983-b9f1729d5877",
+              "name": "sign",
+              "value": "={{ $('Webhook').item.json.body.sign}}",
+              "type": "string"
+            },
+            {
+              "id": "9e06a8c1-4cd6-464e-a556-39286a61309a",
+              "name": "rowIds",
+              "value": "={{ $('[T-flow] Get Meeting Minutes List').item.json.data.rows.map(row => `\"${row.rowid}\"`).join(', ')}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2020,
+        840
+      ],
+      "id": "fbf0b51e-674a-4c88-8d1a-6e851b66328a",
+      "name": "Set T-flow App and Sign Fano"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.t-flow.tech/api/v2/open/worksheet/editRow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"appKey\": \"{{ $('Webhook').item.json.body.appKey}}\",\n  \"sign\": \"{{ $('Webhook').item.json.body.sign}}\",\n  \"worksheetId\": \"meeting_minutes\",\n  \"rowId\":\"{{ $('Loop Over Items3').item.json.rowid}}\",\n  \"triggerWorkflow\": false,\n  \"controls\":[\n        {\n            \"controlId\":\"process_status\",\n            \"value\":\"Failed\"\n        },\n        {\n            \"controlId\":\"transcript\",\n            \"value\": \"Failed: Reset and try again\"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        240
+      ],
+      "id": "39cf8793-c671-4aec-8692-4ef1397f90e0",
+      "name": "[T-flow] Update T-flow Data Failed2",
+      "notesInFlow": true,
+      "notes": "Update the transcript and the status of the row data"
+    },
+    {
+      "parameters": {
+        "chunkingMode": "advanced",
+        "options": {
+          "summarizationMethodAndPrompts": {
+            "values": {
+              "summarizationMethod": "refine",
+              "refinePrompt": "=# Meeting Date\n{{ $('Set Project Context1').first().json.datetime }}\n\n# Meeting Description\n<project description>\n{{ $('Set Project Context1').first().json.description }}\n</project description>\n\n# Here is the glossary of the project\n<project glossary>\n{{ $('Set Project Context1').first().json.glossary }}\n</project glossary>\n\n#Task:\nSummarize the provided meeting minutes transcript below into clear, concise bullet points.\n\n#Rules:\n1. Summarize the transcript in Cantonese.\n2. Present the summary entirely in bullet point format.\n3. Focus on capturing key discussion points, decisions made, and action items (including responsible persons and deadlines if mentioned).\n\n4. Use concise and objective language, following best practices for effective meeting minutes.\n\n5. Structure your summary in a way that mirrors the meeting agenda where possible\n\n6. Make sure for each item, you added the timeline as citation to the transcript\n<example>\n**討論要點：**\n- XXXX (00:12:00 - 00:15:00)\n</example>\n\n\nYour job is to produce a final summary using below sample format\n<sample>\n- **會議日期：** 2025年3月18日 08:46 AM\n- **會議主題：** XXXX\n\n**討論要點：**\n- XXXX\n\n**決策：**\n- XXXX\n\n**行動項目：**\n- XXXXX\n\n**其他重點：**\n- XXXX\n</sample>\n\nWe have provided an existing summary up to a certain point: \"{existing_answer}\"\nWe have the opportunity to refine the existing summary\n(only if needed) with some more context below.\n------------\n\"{text}\"\n------------\n\nGiven the new context, refine the original summary\nIf the context isn't useful, return the original summary.\n\nREFINED SUMMARY:",
+              "refineQuestionPrompt": "=# Meeting Date\n{{ $('Set Project Context1').first().json.datetime }}\n\n# Meeting Description\n<project description>\n{{ $('Set Project Context1').first().json.description }}\n</project description>\n\n# Here is the glossary of the project\n<project glossary>\n{{ $('Set Project Context1').first().json.glossary }}\n</project glossary>\n\n#Task:\nSummarize the provided meeting minutes transcript below into clear, concise bullet points.\n\n#Rules:\n1. Summarize the transcript in Cantonese.\n2. Present the summary entirely in bullet point format.\n3. Focus on capturing key discussion points, decisions made, and action items (including responsible persons and deadlines if mentioned).\n<example>\n- **會議日期：** 2025年3月18日 08:46 AM\n- **會議主題：** XXXX\n\n**討論要點：**\n- XXXX\n\n**決策：**\n- XXXX\n\n**行動項目：**\n- XXXXX\n\n**其他重點：**\n- XXXX\n</example>\n\n4. Use concise and objective language, following best practices for effective meeting minutes.\n\n5. Structure your summary in a way that mirrors the meeting agenda where possible\n\n6. Make sure for each item, you added the timeline as citation to the transcript\n<example>\n**討論要點：**\n- XXXX (00:12:00 - 00:15:00)\n</example>\n\n\nWrite a concise summary of the following:\n<summarize>\n\n\"{text}\"\n\n</summarize>\nCONCISE SUMMARY:"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainSummarization",
+      "typeVersion": 2.1,
+      "position": [
+        1900,
+        1500
+      ],
+      "id": "969b7adb-3149-4f1c-bf02-c41a77c09e88",
+      "name": "Summarization Chain"
+    },
+    {
+      "parameters": {
+        "chunkSize": 20000,
+        "chunkOverlap": 1000,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        1660
+      ],
+      "id": "545e1694-3cb3-4ff7-9680-175619b90a77",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1300
+      ],
+      "id": "91f3a9df-2ec1-4d5a-9db6-3d26f16918d8",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-r1-distill-llama-70b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        1800
+      ],
+      "id": "9b63f312-2045-4a43-80e8-90faec7ff4f3",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "hITFV12Y91OoL0mM",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        1840
+      ],
+      "id": "4f552e6b-95c1-4bda-9cd1-7cf248fdc08b",
+      "name": "Ollama Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "steveykyu.app.n8n.cloud",
+            "user-agent": "Apache-HttpClient/4.5.13 (Java/17.0.13)",
+            "content-length": "545",
+            "accept": "application/json;charset=UTF-8",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "47.242.172.253",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "HK",
+            "cf-ray": "94be1cfb0786110d-HKG",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "multipart/form-data; boundary=Xl39G4711lDv0vvkv5p0ldyLqrnUvK1Q89CQn",
+            "n8n_test": "n8n_test",
+            "x-forwarded-for": "47.242.172.253, 172.71.211.7",
+            "x-forwarded-host": "steveykyu.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-18-7959cfc789-ft96v",
+            "x-is-trusted": "yes",
+            "x-real-ip": "47.242.172.253"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "appKey": "8ddaad176169573a",
+            "sign": "MGQzYzUxZTQyNjFmYmFhZGE5M2RlNDYxNDBlNWZhMzE3MTZkOTQzOGIxNTQwYWUxMTNlMjg4NTU0YjJhZGYyZQ==",
+            "app_owner": "catomind-uat",
+            "confidence_threshold": "0.9"
+          },
+          "webhookUrl": "https://steveykyu.app.n8n.cloud/webhook/358e98c1-5b86-4d8c-88e9-f46f6b7996d5",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Return Url List": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Get Meeting Minutes List with fanolab id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[Backend] Submit Fanolab API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return Url List1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items3": {
+      "main": [
+        [
+          {
+            "node": "Set T-flow App and Sign Fano",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cache Fanolab Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10mins": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Get Fanolab Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Speaker Map Data2": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Update Speaker Map Fano",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map RowId and Transcriptions1": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Update T-flow Fano Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set Speaker Map Data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Get Meeting Minutes List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Get Meeting Minutes List": {
+      "main": [
+        [
+          {
+            "node": "Return Url List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Submit Fanolab API": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Update T-flow Fanolab ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Update T-flow Fanolab ID": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Get Meeting Minutes List with fanolab id": {
+      "main": [
+        [
+          {
+            "node": "Return Url List1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Get Fanolab Transcription": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Update T-flow Fano Data": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Update Speaker Map Fano": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Map RowId and Transcriptions1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[T-flow] Update T-flow Data Failed1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 10mins",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[T-flow] Update T-flow Data Failed2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Fanolab Data": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Get Fanolab Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map the Transcript1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set response1": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Update AI Summary1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Project Context1": {
+      "main": [
+        [
+          {
+            "node": "Summarization Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Updating LT Memory Chain1": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Update Memory List1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Memory List1": {
+      "main": [
+        [
+          {
+            "node": "Updating LT Memory Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        []
+      ]
+    },
+    "Set Workflow State1": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Get Meeting Minutes List2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Get Project Context1": {
+      "main": [
+        [
+          {
+            "node": "Set Project Context1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Update AI Summary1": {
+      "main": [
+        [
+          {
+            "node": "[T-flow] Get Project Memory1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Get Project Memory1": {
+      "main": [
+        [
+          {
+            "node": "Set Memory List1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Update Memory List1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items5": {
+      "main": [
+        [],
+        [
+          {
+            "node": "[T-flow] Get Project Context1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[T-flow] Get Meeting Minutes List2": {
+      "main": [
+        [
+          {
+            "node": "Map the Transcript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set T-flow App and Sign Fano": {
+      "main": [
+        [
+          {
+            "node": "Set Workflow State1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarization Chain": {
+      "main": [
+        [
+          {
+            "node": "Set response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Summarization Chain",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        []
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarization Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Updating LT Memory Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e95b96e6-0e44-4009-b8c5-ad5db6f689f1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
+  },
+  "id": "KoRMHjX8UN0Pg1YM",
+  "tags": []
+}

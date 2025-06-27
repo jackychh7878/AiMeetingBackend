@@ -1,0 +1,320 @@
+{
+  "name": "Meeting Minutes Chabot - ON PREMISES",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a highly knowledgeable and proactive Project Manager Agent. Your primary responsibility is to assist users in understanding the project’s scope, tracking current progress, and retrieving historical meeting details. To fulfill this role, you have access to the following tools:\n\n1. Get Project List: Use this tool to obtain the full project list, which also included the project name, project summary, detailed overview, and glossary.\n\n2. Get Project Memory: Use this tool to retrieve past meeting outcomes, decisions made, and action items, including the unique rowid for the meeting minutes, by providing the project name.\n\n3. Get Meeting Minutes: Use this tool to get the full transcript, summary and spekaers involved of a specific meeting by providing the rowid. The rowid of that meeting could be found from the \"Get Project Memory\" tool.\n\n\n### When a user asks about the project scope, progress, or historical meeting details, follow these guidelines:\n\n1. Project Scope & Overview: If the user inquires about the project’s purpose, goals, or definitions of terms (glossary), call the Get Project Overview tool.\n\n2. Historical Meetings & Decisions: For queries about what happened in past meetings (decisions made, action items, or general memory), call the Get Project Memory tool.\n\n3. Detailed Meeting Information: For detailed discussion, transcripts, or summaries of a specific meeting, use the \"Get Meeting Minutes\" tool by providing the appropriate rowid.\n\n4. If the user specify to look up the meeting minutes, use the \"Get Meeting Minutes\" tool to look up the full transcript, find the relevant part to help the user trace back the conversation\n<Example of Get Meeting Minutes>\nUser: \"Look up the meeting minutes of 13/8, exactly what timeline was topic ABC discussed?\"\"\nAI: (call the 'Get Meeting Minutes' tool using the rowid from  'Get Project Memory', look up the transcript one by one)\nAI: \"在2025年3月18日的會議中，關於「topic ABC」的討論時間如下：\\n\\n### 討論時間\\n- **討論開始時間：** 約在 **00:15:22**\\n- **相關討論內容：**\\n  - Speaker-1 提出XXXXX。\\n  - Speaker-2 和 Speaker-1 進一步探討如何在系統中運用XXXX，並提出進行簡化管理的建議\"\n</Example of Get Meeting Minutes>\n\n5. Noted Speaker-1, Speaker-2... are not the actual speaker name.\nIf the user specify to look up information of the speakers involved in the specific meeting, use the \"Get Meeting Minutes\" to look up the speaker information\n\n\n### Rules:\n- Ensure your responses are clear, well-organized, and directly address the user’s query. Leverage the tools to provide accurate and up-to-date information about the project’s history, current progress, and future plans. If additional clarification is needed from the user, ask targeted questions to guide them in providing the necessary details (such as the project name or the specific meeting rowid).\n\n- Your goal is to empower users with complete and precise insights into their projects, from high-level overviews to detailed meeting analyses.\n\n- Answer everything in Traditional Chinese, ideally Cantonese\n\n- No need to include any URLs, show the necessary points in point, or in table format\n\n-If the user requests to present the data in graph, you could directly share the the url fetched from the dashboard tool\nif there is no graph url showing, just say you are not allowed to generate graph at this moment\n\n\n-Today's Date: {{ DateTime.now().format('yyyy-MM-dd') }}\n\nBelow is the user query:\n{{ $json.chatInput }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        920,
+        0
+      ],
+      "id": "b075c31b-531f-4e7f-a8ca-60a8fc4503db",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get Project List: Use this tool to obtain the current list of active project name, overview. ",
+        "method": "POST",
+        "url": "http://ai_meeting_backend:8000/tflow_get_project_list",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "app_key",
+              "valueProvider": "fieldValue",
+              "value": "889ff954ee6a1593"
+            },
+            {
+              "name": "sign",
+              "valueProvider": "fieldValue",
+              "value": "OGNlNTBjZWM4ODdhNDRlY2U1OThlNDFjNWVlMjEzODIwNWI4ZDExOTVlNzFkZjk2MWIzZjkxOTNjMGYyMjU4ZQ=="
+            },
+            {
+              "name": "page_szie",
+              "valueProvider": "fieldValue",
+              "value": "50"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        320
+      ],
+      "id": "1c07f939-25d4-4caf-a553-ed333aa2d0b0",
+      "name": "Get Project List"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get Project Memory: Use this tool to retrieve past meeting outcomes, decisions made, and action items, including the unique rowid for the meeting minutes, by providing the project name.\n\nYou only need to use this tool once to get the project context.\n\nWhenever the user is asking about the speaker involved in the meeting, MAKE SURE to use the Get Meeting Minutes tool to retrieve the actual name of the speaker.",
+        "method": "POST",
+        "url": "http://ai_meeting_backend:8000/tflow_get_project_memory",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "app_key",
+              "valueProvider": "fieldValue",
+              "value": "889ff954ee6a1593"
+            },
+            {
+              "name": "sign",
+              "valueProvider": "fieldValue",
+              "value": "OGNlNTBjZWM4ODdhNDRlY2U1OThlNDFjNWVlMjEzODIwNWI4ZDExOTVlNzFkZjk2MWIzZjkxOTNjMGYyMjU4ZQ=="
+            },
+            {
+              "name": "project_name"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        320
+      ],
+      "id": "b72c042e-77a1-4015-9393-9f55109cdcb8",
+      "name": "Get Project Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get Meeting Minutes: Use this tool to get the full transcript and summary of a specific meeting by providing the rowid.\n\nMake sure you are using the \"rowid\" from the \"meeting_minutes\" of each object for retrieving \"Get Meeting Minutes\" API\n\nYou only need to use this tool once to by inputting the correct rowid.\n",
+        "method": "POST",
+        "url": "http://ai_meeting_backend:8000/tflow_get_meeting_minutes",
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "app_key",
+              "valueProvider": "fieldValue",
+              "value": "=889ff954ee6a1593"
+            },
+            {
+              "name": "sign",
+              "valueProvider": "fieldValue",
+              "value": "OGNlNTBjZWM4ODdhNDRlY2U1OThlNDFjNWVlMjEzODIwNWI4ZDExOTVlNzFkZjk2MWIzZjkxOTNjMGYyMjU4ZQ=="
+            },
+            {
+              "name": "meeting_rowid"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        320
+      ],
+      "id": "0c21cb24-51ce-43bd-9e23-d34540b9dafd",
+      "name": "Get Meeting Minutes"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get Dashboard: Use this tool to obtain the dashboard by dashboard name:\n\n\"time_spent_on_project\": Return the total time spent by project\n\"no_of_meeting_by_project\": Return the total number of meetings by project\n\"time_spent_on_project_by_staff\": Return the total time spent on each project by staff name\n\"contribution_leaderboard\": Return the detailed breakdown of staff's contribution in meeting\n\nIf the user requests to present the data in graph, you could directly share the below url of the dashboard:\n<url>\nhttps://www.t-flow.tech/public/page/680499cf6b3224e06c6c44c8\n</url>\n",
+        "method": "POST",
+        "url": "http://ai_meeting_backend:8000/tflow_get_dashboard",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"app_key\": \"889ff954ee6a1593\",\n  \"sign\": \"OGNlNTBjZWM4ODdhNDRlY2U1OThlNDFjNWVlMjEzODIwNWI4ZDExOTVlNzFkZjk2MWIzZjkxOTNjMGYyMjU4ZQ==\",\n  \"dashboard_name\": {dashboard_name},\n  \"start_dt\": {start_dt},\n  \"end_dt\": {end_dt}\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "dashboard_name",
+              "description": "dashboard name, currently only support four dashboard: time_spent_on_project, no_of_meeting_by_project, time_spent_on_project_by_staff, contribution_leaderboard",
+              "type": "string"
+            },
+            {
+              "name": "start_dt",
+              "description": "start date from, example 2025-01-01, optional (leave as empty string if not needed)",
+              "type": "string"
+            },
+            {
+              "name": "end_dt",
+              "description": "end date to, example 2025-01-01, optional (leave as empty string if not needed)",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        320
+      ],
+      "id": "e60dbb25-01d3-4916-9419-7875f9451b76",
+      "name": "Get Dashboard"
+    },
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        520,
+        0
+      ],
+      "id": "c6a000b5-aca3-4e12-80e5-8b458737b64c",
+      "name": "When chat message received",
+      "webhookId": "8e7676c3-8d0b-47ee-9b68-7ab51848f0ec"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        780,
+        240
+      ],
+      "id": "41ab310b-9472-4a7f-9fe8-11f21cb003bf",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        620,
+        240
+      ],
+      "id": "09798a5a-3735-40f6-bfb0-d76276935658",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "hITFV12Y91OoL0mM",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        460,
+        240
+      ],
+      "id": "f819b0f9-8ee2-4783-9930-194210f8bc49",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get Project List": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Project Memory": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Meeting Minutes": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dashboard": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5a5b5236-8b55-4811-8403-448e996017b6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
+  },
+  "id": "QV7JZUAVniPXpq8d",
+  "tags": []
+}
