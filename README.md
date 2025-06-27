@@ -136,3 +136,40 @@ This allows you to run any other commands as needed inside the container.
 ---
 
 Use the first method for single commands, and the second for interactive work.
+
+## Internal Docker Service DNS Table
+
+| Service Name                | Internal Hostname                  | Internal Port |
+|-----------------------------|------------------------------------|---------------|
+| ai_meeting_backend          | ai_meeting_backend                 | 8000          |
+| pgvector                    | pgvector                           | 5432          |
+| minio                       | minio                              | 9000          |
+| postgres                    | postgres                           | 5432          |
+| n8n                         | n8n                                | 5678          |
+| qdrant                      | qdrant                             | 6333          |
+| ollama-cpu                  | ollama-cpu                         | 11434         |
+| ollama-gpu                  | ollama-gpu                         | 11434         |
+| ollama-gpu-amd              | ollama-gpu-amd                     | 11434         |
+| ai_meeting_chatbot_frontend | ai_meeting_chatbot_frontend        | 3000          |
+
+**Usage:**
+- Use the `Internal Hostname` and `Internal Port` to connect between services inside Docker Compose (e.g., `http://ai_meeting_backend:8000`).
+- These hostnames are only accessible to other containers on the same Docker network.
+
+## On-Premises Deployment Checklist
+
+### Step 1: Update .env File
+- [ ] Set `ON_PREMISES_MODE` to `on_premises`
+- [ ] Set `NGROK_PUBLIC_MODE` to `private`
+- [ ] Update `TFLOW_HOST` to your on-premises host
+
+### Step 2: Update n8n Workflows
+- [ ] Update all `[T-flow]` nodes with the new T-flow host URL, app ID, and sign ID in both the Ai Meeting Minutes flow and Chatbot flow
+- [ ] Ensure Ollama is connected successfully with the local n8n flow
+- [ ] Check that the webhook is running successfully
+
+### Step 3: Update T-flow
+- [ ] Update the workflow backend host URL
+- [ ] Update the app ID and sign ID as API parameters
+- [ ] Update the chatbot `webhook_id`
+- [ ] Update the tutorial video
