@@ -68,6 +68,8 @@ services:
       - NGROK_SECRET_KEY=${NGROK_SECRET_KEY}
       - TFLOW_HOST=${TFLOW_HOST}
       - ON_PREMISES_POSTGRES_CONNECTION=${ON_PREMISES_POSTGRES_CONNECTION}
+    env_file:
+      - .env
     depends_on:
       - pgvector
       - minio
@@ -78,8 +80,6 @@ services:
       timeout: 30s
       retries: 3
       start_period: 5s
-    volumes:
-      - ./path/to/.env:/app/.env:ro
     networks:
       - ai_network
 
