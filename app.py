@@ -230,9 +230,191 @@ UPLOAD_TEMPLATE = """
 </html>
 """
 
+# HTML template for Fano Extract Speaker Clip
+FANO_EXTRACT_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speaker Clip Extraction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .upload-section {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+            text-align: center;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+            white-space: pre-line;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .upload-status {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Speaker Clip Extraction</h1>
+        
+        <div class="upload-section">
+            <form id="fanoExtractForm">
+                <input type="text" id="sourceUrlInput" placeholder="Source URL" required>
+                <input type="text" id="fanolabIdInput" placeholder="Fanolab ID" required>
+                <button type="submit" id="fanoExtractButton">Extract Speaker Clips</button>
+            </form>
+            <div class="spinner" id="spinner"></div>
+            <div class="upload-status" id="uploadStatus"></div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function showResult(message, isError = false, downloadUrl = null) {
+            const resultDiv = document.getElementById('result');
+            if (isError) {
+                resultDiv.innerHTML = message;
+            } else {
+                resultDiv.innerHTML = `
+                    <div>Speaker clips are ready. Download will start automatically. If not, <a href="${downloadUrl}" target="_blank" download>click here</a>.</div>
+                `;
+                // Auto download
+                if (downloadUrl) {
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = '';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+            }
+            resultDiv.style.display = 'block';
+            resultDiv.className = isError ? 'error' : 'success';
+        }
+
+        function setLoading(isLoading) {
+            const spinner = document.getElementById('spinner');
+            const button = document.getElementById('fanoExtractButton');
+            const status = document.getElementById('uploadStatus');
+            const sourceUrlInput = document.getElementById('sourceUrlInput');
+            const fanolabIdInput = document.getElementById('fanolabIdInput');
+            if (isLoading) {
+                spinner.style.display = 'block';
+                button.disabled = true;
+                sourceUrlInput.disabled = true;
+                fanolabIdInput.disabled = true;
+                status.textContent = 'Processing...';
+            } else {
+                spinner.style.display = 'none';
+                button.disabled = false;
+                sourceUrlInput.disabled = false;
+                fanolabIdInput.disabled = false;
+                status.textContent = '';
+            }
+        }
+
+        document.getElementById('fanoExtractForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sourceUrl = document.getElementById('sourceUrlInput').value.trim();
+            const fanolabId = document.getElementById('fanolabIdInput').value.trim();
+            if (!sourceUrl || !fanolabId) {
+                showResult('Please provide both Source URL and Fanolab ID', true);
+                return;
+            }
+            setLoading(true);
+            try {
+                const response = await fetch('/upload/fano_extract_speaker_clip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_url: sourceUrl, fanolab_id: fanolabId })
+                });
+                const data = await response.json();
+                if (response.ok && data.download_url) {
+                    showResult('', false, data.download_url);
+                } else {
+                    showResult(data.error || 'Extraction failed', true);
+                }
+            } catch (error) {
+                showResult('Error extracting speaker clips', true);
+            } finally {
+                setLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
 @app.route('/')
 def index():
     return render_template_string(UPLOAD_TEMPLATE)
+
+@app.route('/fano-extract')
+def fano_extract():
+    return render_template_string(FANO_EXTRACT_TEMPLATE)
 
 @app.route('/upload/file', methods=['POST'])
 def upload_file():
@@ -416,6 +598,21 @@ def tflow_get_dashboard_api():
         return result
     except Exception as e:
         return jsonify({"error": str(e)})
+
+@app.route('/upload/fano_extract_speaker_clip', methods=['POST'])
+def upload_fano_extract_speaker_clip():
+    try:
+        data = request.get_json()
+        if not data or 'source_url' not in data or 'fanolab_id' not in data:
+            return jsonify({'error': 'Both source_url and fanolab_id are required'}), 400
+        result = fanolab_extract_speaker_clip(request)
+        # result may be (dict, status) or just dict
+        if isinstance(result, tuple):
+            body, status = result
+            return jsonify(body), status
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 # @app.route('/minio_upload_blob', methods=['POST'])
 # def minio_upload_blob_api():
