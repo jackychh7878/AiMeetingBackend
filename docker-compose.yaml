@@ -18,6 +18,11 @@ x-n8n: &service-n8n
     - N8N_DEFAULT_BINARY_DATA_MODE=${N8N_DEFAULT_BINARY_DATA_MODE}
   env_file:
     - .env
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 x-ollama: &service-ollama
   image: ollama/ollama:latest
@@ -28,6 +33,11 @@ x-ollama: &service-ollama
     - 11434:11434
   volumes:
     - ollama_storage:/root/.ollama
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 x-init-ollama: &init-ollama
   image: ollama/ollama:latest
@@ -71,48 +81,74 @@ services:
     env_file:
       - .env
     depends_on:
-      - pgvector
-      - minio
-      - n8n
+      pgvector:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      n8n:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
-      timeout: 30s
+      timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 40s
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   pgvector:
     image: pgvector/pgvector:pg17
     container_name: pgvector
     environment:
-      - POSTGRES_USER=sqladmin
-      - POSTGRES_PASSWORD=P@ssw0rd
-      - POSTGRES_DB=postgres
+      - POSTGRES_USER=${PGVECTOR_USER:-sqladmin}
+      - POSTGRES_PASSWORD=${PGVECTOR_PASSWORD:-P@ssw0rd}
+      - POSTGRES_DB=${PGVECTOR_DB:-postgres}
     ports:
       - "5432:5432"
     volumes:
       - pgvector_data:/var/lib/postgresql/data
       - ./init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sqladmin"]
+      test: ["CMD-SHELL", "pg_isready -U $${PGVECTOR_USER:-sqladmin}"]
       interval: 30s
-      timeout: 30s
+      timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 40s
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-06-13T11-33-47Z
     container_name: minio
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
@@ -120,11 +156,21 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
-      timeout: 30s
+      timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 40s
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   postgres:
     image: postgres:16-alpine
@@ -144,6 +190,16 @@ services:
       retries: 10
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   n8n-import:
     <<: *service-n8n
@@ -178,7 +234,7 @@ services:
         condition: service_completed_successfully
 
   qdrant:
-    image: qdrant/qdrant
+    image: qdrant/qdrant:v1.7.4
     container_name: qdrant
     restart: unless-stopped
     ports:
@@ -187,6 +243,16 @@ services:
       - qdrant_storage:/qdrant/storage
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   ollama-cpu:
     profiles: ["cpu"]
@@ -240,15 +306,32 @@ services:
       - VITE_N8N_BASE_URL=${VITE_N8N_BASE_URL}
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgvector_data:
+    driver: local
   minio_data:
+    driver: local
   minio_config:
+    driver: local
   n8n_storage:
+    driver: local
   ollama_storage:
+    driver: local
   qdrant_storage:
+    driver: local
   postgres_n8n_data:
+    driver: local
 
 networks:
   ai_network:
