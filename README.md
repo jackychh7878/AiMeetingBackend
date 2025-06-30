@@ -14,8 +14,8 @@ This project combines an AI-powered meeting backend with a self-hosted n8n autom
 
 1. **Clone the repository:**
    ```sh
-   git clone <your-repo-url>
-   cd AiMeetingMinutes
+   git clone https://github.com/jackychh7878/ai-meeting-minutes-starter-kit.git
+   cd ai-meeting-minutes-starter-kit
    ```
 
 2. **Configure environment variables:**
@@ -96,12 +96,6 @@ docker exec -it n8n n8n export:credentials --all --output=/home/node/.n8n/export
 - Ollama supports CPU, Nvidia GPU, and AMD GPU profiles. Select the appropriate profile for your hardware.
 - Demo workflows and credentials for n8n are included in `n8n/demo-data`.
 - Environment variables are loaded from the `.env` file in the project root.
-
-## TODO
-- [ ] Add detailed project introduction
-- [ ] Add API documentation
-- [ ] Add workflow examples
-- [ ] Add troubleshooting and FAQ
 
 ## Running Ollama Pull Commands After docker-compose up
 
