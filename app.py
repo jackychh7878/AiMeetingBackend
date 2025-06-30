@@ -321,7 +321,7 @@ FANO_EXTRACT_TEMPLATE = """
         
         <div class="upload-section">
             <form id="fanoExtractForm">
-                <input type="text" id="sourceUrlInput" placeholder="Source URL" required>
+                <input type="text" id="sourceUrlInput" placeholder="Meeting Url" required>
                 <input type="text" id="fanolabIdInput" placeholder="Fanolab ID" required>
                 <button type="submit" id="fanoExtractButton">Extract Speaker Clips</button>
             </form>
