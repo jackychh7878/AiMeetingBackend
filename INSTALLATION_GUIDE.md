@@ -68,6 +68,7 @@ Copy the provided `.env` file to the same directory as your `docker-compose-offl
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
+# Set VITE_N8N_BASE_URL to the base URL for your n8n workflow engine (default: http://localhost:5678)
 ```
 
 ### 5. Start Services
