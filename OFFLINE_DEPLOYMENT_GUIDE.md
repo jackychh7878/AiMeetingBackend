@@ -128,6 +128,37 @@ After starting, you can verify which services are running:
 ```bash
 docker-compose ps
 ```
+### View Logs
+```bash
+docker-compose logs -f [service-name]
+```
+
+
+## Environment Variables and Container Recreation
+
+When you update your `.env` file, Docker containers may not automatically pick up the new environment variables due to caching. To force containers to use the updated environment variables:
+
+```sh
+# Stop and remove existing containers
+docker-compose down
+
+# Remove any cached images (optional but recommended)
+docker-compose pull
+
+# Start services with fresh containers
+docker-compose up -d --force-recreate
+```
+
+**Why this is necessary:**
+- Docker containers cache environment variables at build time
+- Simply updating the `.env` file doesn't automatically update running containers
+- The `--force-recreate` flag ensures containers are rebuilt with the latest environment variables
+
+### Reset Everything
+```bash
+docker-compose down -v
+docker-compose up -d
+```
 
 ## System Requirements
 

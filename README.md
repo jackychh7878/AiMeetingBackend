@@ -44,6 +44,17 @@ This project combines an AI-powered meeting backend with a self-hosted n8n autom
    - MinIO Console: [http://localhost:9001](http://localhost:9001)
    - Qdrant: [http://localhost:6333](http://localhost:6333)
 
+5. ** Troubleshooting **
+    ### Check Service Status
+    ```bash
+    docker-compose ps
+    ```
+    
+    ### View Logs
+    ```bash
+    docker-compose logs -f [service-name]
+    ```
+
 ## Environment Variables and Container Recreation
 
 When you update your `.env` file, Docker containers may not automatically pick up the new environment variables due to caching. To force containers to use the updated environment variables:
@@ -63,6 +74,12 @@ docker-compose up -d --force-recreate
 - Docker containers cache environment variables at build time
 - Simply updating the `.env` file doesn't automatically update running containers
 - The `--force-recreate` flag ensures containers are rebuilt with the latest environment variables
+
+### Reset Everything
+```bash
+docker-compose down -v
+docker-compose up -d
+```
 
 ## n8n Credential Export
 
@@ -156,6 +173,10 @@ Use the first method for single commands, and the second for interactive work.
 - [ ] Set `ON_PREMISES_MODE` to `on_premises`
 - [ ] Set `NGROK_PUBLIC_MODE` to `private`
 - [ ] Update `TFLOW_HOST` to your on-premises host
+- [ ] Configure MinIO settings:
+  - [ ] Set `MINIO_ENDPOINT` to your MinIO server address (e.g., `localhost:9000` or `your-server-ip:9000`)
+  - [ ] Set `MINIO_ACCESS_KEY` and `MINIO_SECRET_KEY` to your MinIO credentials
+  - [ ] Set `MINIO_SECURE` to `true` for HTTPS or `false` for HTTP
 
 ### Step 2: Update n8n Workflows
 - [ ] Update all `[T-flow]` nodes with the new T-flow host URL, app ID, and sign ID in both the Ai Meeting Minutes flow and Chatbot flow

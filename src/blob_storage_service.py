@@ -3,35 +3,25 @@ from dotenv import load_dotenv
 from minio import Minio
 from datetime import timedelta
 import mimetypes
-import socket
 from enum import Enum
 from src.enums import NgrokMode
 
 # Load environment variables
 load_dotenv()
 
-def get_local_ip():
-    """Get the local IP address of this machine"""
-    try:
-        # Connect to a remote address to determine local IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-        return local_ip
-    except Exception:
-        return "localhost"
+# Get MinIO configuration from environment variables
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
-
-# Get the server's IP address
-server_ip = get_local_ip()
-print(f"MinIO server accessible at: {server_ip}:9000")
+print(f"MinIO server accessible at: {MINIO_ENDPOINT}")
 
 # Initialize client
-client = Minio(f"{server_ip}:9000",
-               access_key=os.getenv("NGROK_ACCESS_KEY"),
-               secret_key=os.getenv("NGROK_SECRET_KEY"),
-               secure=False)
+client = Minio(MINIO_ENDPOINT,
+               access_key=MINIO_ACCESS_KEY,
+               secret_key=MINIO_SECRET_KEY,
+               secure=MINIO_SECURE)
 
 # Check if the minio blob storage is public access, or only local access
 NGROK_PUBLIC_MODE = os.getenv("NGROK_PUBLIC_MODE")
@@ -39,8 +29,8 @@ if NGROK_PUBLIC_MODE == NgrokMode.PUBLIC.value:
     # Public access via ngrok
     ngrok_host = os.getenv("NGROK_HOST")  # <-- use your current ngrok host
     client = Minio(f"{ngrok_host}",
-                   access_key=os.getenv("NGROK_ACCESS_KEY"),
-                   secret_key=os.getenv("NGROK_SECRET_KEY"),
+                   access_key=MINIO_ACCESS_KEY,
+                   secret_key=MINIO_SECRET_KEY,
                    secure=True)  # ngrok uses https
 
 def minio_upload_and_share(file_path: str, bucket: str, blob_name: str, expiry_date: timedelta = timedelta(hours=1)) -> str:
