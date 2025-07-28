@@ -328,6 +328,7 @@ services:
       - "3001:3000"
     environment:
       - VITE_N8N_BASE_URL=${VITE_N8N_BASE_URL}
+      - VITE_N8N_WEBHOOK_ID=${VITE_N8N_WEBHOOK_ID}
     networks:
       - ai_network
     deploy:
