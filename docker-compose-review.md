@@ -135,12 +135,9 @@ TFLOW_HOST=your_tflow_host_here
 # ngrok exposes your local backend to the internet for cloud callbacks.
 # - NGROK_PUBLIC_MODE: 'public' (use ngrok DNS) or 'private' (use local IP only)
 # - NGROK_HOST: your ngrok public DNS
-# - NGROK_ACCESS_KEY/NGROK_SECRET_KEY: your MinIO credentials
 # To use ngrok, set ON_PREMISES_MODE=on_premises.
 NGROK_PUBLIC_MODE=public
 NGROK_HOST=your_ngrok_host_here
-NGROK_ACCESS_KEY=your_minio_access_key
-NGROK_SECRET_KEY=your_minio_secret_key
 
 # On-premises DB (if used)
 ON_PREMISES_POSTGRES_CONNECTION=postgresql+psycopg2://sqladmin:your_pgvector_password@localhost:5432/postgres
