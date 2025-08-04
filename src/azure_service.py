@@ -160,9 +160,9 @@ def azure_fetch_completed_transcription(url: str, match_voiceprint: bool = True,
                         matches_data = matches.get_json()
                         if matches_data and len(matches_data) > 0:
                             best_match = matches_data[0]
-                            if best_match["similarity"] >= confidence_threshold:  # Confidence threshold
-                                stats["identified_name"] = best_match["name"]
-                                stats["confidence"] = best_match["similarity"]
+                            if best_match.get("similarity", 0) >= confidence_threshold:  # Confidence threshold
+                                stats["identified_name"] = best_match.get("name", "unknown")
+                                stats["confidence"] = best_match.get("similarity")
                             else:
                                 stats["identified_name"] = "unknown"
                         else:
@@ -469,7 +469,7 @@ def azure_match_speaker_voiceprint(request):
                         matches_data = matches.get_json()
                         if matches_data and len(matches_data) > 0:
                             best_match = matches_data[0]
-                            if best_match["similarity"] >= confidence_threshold:  # Confidence threshold
+                            if best_match.get("similarity", 0) >= confidence_threshold:  # Confidence threshold
                                 stats["identified_name"] = best_match.get("name", "unknown")
                                 stats["confidence"] = best_match.get("similarity")
                             else:
